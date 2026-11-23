@@ -120,7 +120,8 @@ class PageTests(unittest.TestCase):
         self.assertLess(html.index("cutscenes.js"), html.index("game.js"))
         self.assertIn("?v=", html)
         for element_id in ('id="screen"', 'id="modal"', 'id="dialog"', 'id="hud"',
-                           'id="title-canvas"', 'id="new-btn"', 'id="resume-btn"'):
+                           'id="title-canvas"', 'id="new-btn"', 'id="resume-btn"', 'id="log-btn"',
+                           'id="objective"', 'id="objective-items"', 'Items collected 0/2'):
             self.assertIn(element_id, html)
 
 

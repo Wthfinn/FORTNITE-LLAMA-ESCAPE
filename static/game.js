@@ -132,6 +132,28 @@ function saveExtras() {
   writeJson(EXTRAS_KEY, extras);
 }
 
+// The trophies: which endings and which ways of losing the player has found so far.
+// Kept in the browser across new games (clearSave does not touch it).
+const LOG_KEY = "fortnite-llama-escape-log";
+const ENDING_NAMES = { A: "Llama Found!", B: "Lost in the Storm", C: "Eliminated" };
+function readLog() {
+  const saved = readJson(LOG_KEY) || {};
+  const endings = Array.isArray(saved.endings) ? saved.endings.filter((e) => ENDING_NAMES[e]) : [];
+  const deaths = {};
+  if (saved.deaths && typeof saved.deaths === "object" && !Array.isArray(saved.deaths)) {
+    Object.keys(saved.deaths).forEach((id) => {
+      if (ELIMINATIONS[id]) deaths[id] = typeof saved.deaths[id] === "string" ? saved.deaths[id] : "tilted";
+    });
+  }
+  return { endings, deaths };
+}
+function recordTrophy(endingCode, deathId, where) {
+  const log = readLog();
+  if (!log.endings.includes(endingCode)) log.endings.push(endingCode);
+  if (deathId && ELIMINATIONS[deathId]) log.deaths[deathId] = where || "tilted";
+  writeJson(LOG_KEY, log);
+}
+
 // ---------- sound ----------
 
 const sounds = {
@@ -303,6 +325,7 @@ function pxImage(file) {
 }
 
 function showStart(note) {
+  shownCollected = null;
   const saved = readSave();
   $("start-note").textContent = note ||
     (saved ? "Welcome back! Load your game, or start a new one." : "Your Llama ran away. Ready to find it?");
@@ -328,7 +351,14 @@ function updateHud() {
     list.replaceChildren();
     if (!view.inventory.length) list.appendChild(el("li", "empty", "no items"));
     view.inventory.forEach((item) => {
-      const li = el("li", item.name === hudPop ? "pop" : "");
+      const li = el("li", "item" + (item.name === hudPop ? " pop" : ""));
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      li.title = "Click to inspect " + item.name;
+      li.addEventListener("click", () => inspectItem(item));
+      li.addEventListener("keydown", (e) => {
+        if (e.code === "Enter") { e.preventDefault(); e.stopPropagation(); inspectItem(item); }
+      });
       const icon = el("img", "pixel");
       icon.src = IMG + "px/" + item.icon;
       icon.alt = "";
@@ -337,16 +367,52 @@ function updateHud() {
       list.appendChild(li);
     });
   }
-  let hint = "Arrows / WASD walk · SPACE talk, use, next · 1 2 3 choose · ESC pause · click the red X to close · M sound";
+  let hint = "Arrows / WASD walk · SPACE talk, use, next · 1 2 3 choose · ESC pause · click the red X to close · click an item to inspect it · M sound";
   if (scene === "bus") {
     hint = bus.phase === "select"
       ? "Arrow keys choose where to drop · SPACE jump · T talk to the bus driver · M sound"
       : "SPACE or click to continue · M sound";
   }
   $("hint").textContent = hint;
+  updateObjective();
   const inStorm = scene === "storm";
   $("health-box").hidden = !inStorm && health >= 100;           // outside the storm it shows while health is missing
   updateHealthBar();
+}
+
+// The line under the top bar: how many items were collected, and what to do next.
+let shownCollected = null;       // the number shown last (null: nothing shown yet, so no bump on loading a game)
+function updateObjective() {
+  const total = view.items_total || 2;
+  const collected = Math.min(total, view.items_collected || 0);
+  const counter = $("objective-items");
+  counter.textContent = "Items collected " + collected + "/" + total;
+  if (shownCollected !== null && collected > shownCollected) {      // an item was really collected: the number rises
+    counter.classList.remove("bump");
+    void counter.offsetWidth;
+    counter.classList.add("bump");
+  }
+  shownCollected = collected;
+  let goal = "Find your Llama before the Storm does. Explore and collect items.";
+  if (scene === "bus") goal = "Pick where to drop, then find your Llama before the Storm does.";
+  else if (scene === "storm") goal = "Get to your Llama on the far side of the valley. Mind your health!";
+  else if (collected >= total) goal = "Both items found. Head to Polar Peak and enter the Storm.";
+  else if (collected > 0) goal = "Keep exploring: there is another item out there.";
+  $("objective-goal").textContent = goal;
+}
+
+// Click an item in the top bar to read what it does.
+function inspectItem(item) {
+  if (modal || dialogOpen || busy || paused || cutscene.active || landing.active || dance.active || finale.phase || itemFly.active) return;
+  const panel = openModal("item");
+  addCloseX(panel);
+  panel.appendChild(el("h2", "", item.name));
+  const picture = el("img", "pixel item-picture");
+  picture.src = IMG + "px/" + item.icon;
+  picture.alt = "";
+  panel.appendChild(picture);
+  panel.appendChild(el("p", "item-text", item.description));
+  addOption(panel, "Close", closeModal);
 }
 
 function updateHealthBar() {
@@ -481,9 +547,9 @@ function showChugPrompt() {
   }, "danger-option");
 }
 
-// The danger alarm plays for 6 seconds while the card is up. The options can only be chosen when it
+// The danger alarm plays for 4 seconds while the card is up. The options can only be chosen when it
 // has finished (so the player hears the warning first); a bar shows how long. With the sound off there is no wait.
-const ALARM_SECONDS = 6;
+const ALARM_SECONDS = 4;
 // Which town's setting surrounds a danger: it sits at the far end of its path (the icy ones always in Polar Peak).
 function hazardTownOf(v) {
   if (path && path.def && path.def.hazardTown) return path.def.hazardTown;
@@ -542,24 +608,27 @@ function showHazard(v) {
 }
 
 function showEnding(v) {
-  const panel = openModal("ending ending-" + v.ending.code.toLowerCase());
+  const code = v.ending.code;
+  const panel = openModal("ending ending-" + code.toLowerCase());
   FX.where = extras.deathWhere || "tilted";                                // the setting where it happened
-  const card = v.ending.code !== "A" && ELIMINATIONS[extras.death];       // the elimination card has its own big banner
-  if (!card || v.ending.code !== "C") panel.appendChild(el("h2", "", v.ending.title));
+  const card = code !== "A" && ELIMINATIONS[extras.death];                // the elimination card has its own big banner
+  recordTrophy(code, card ? extras.death : null, extras.deathWhere);
+  panel.appendChild(el("p", "ending-tag", "Ending " + code));
+  if (!card || code !== "C") panel.appendChild(el("h2", "", v.ending.title));
   panel.appendChild(card ? eliminationCard(extras.death) : pxImage(v.ending.image));
-  if (v.ending.code === "A") {
-    const victory = el("img", "pixel victory");
-    victory.src = IMG + "px/victory_banner.png";
-    victory.alt = "Victory Royale";
-    panel.appendChild(victory);
-  }
   panel.appendChild(el("p", "question", v.ending.text));
-  if (v.ending.code !== "C") {                                          // no breakdown when a danger on a path got the player
-    const review = el("ul", "review");
+  panel.appendChild(el("p", "because", v.ending.because));                // how the player's choices led here
+  const review = el("ul", "review");
+  if (code === "C") {                                                      // lost on a path: the dangers met so far
+    panel.appendChild(el("p", "review-title", "The dangers you faced"));
+    v.review.dangers.forEach((line) => review.appendChild(el("li", "", line)));
+  } else {
+    panel.appendChild(el("p", "review-title", "How your choices shaped this ending"));
+    v.review.items.forEach((line) => review.appendChild(el("li", "", line)));
+    v.review.dangers.forEach((line) => review.appendChild(el("li", "", line)));
     v.review.decisions.forEach((d) => review.appendChild(el("li", "", d.question + " → " + d.answer)));
-    review.appendChild(el("li", "", "Dangers survived: " + v.review.hazards_survived));
-    panel.appendChild(review);
   }
+  panel.appendChild(review);
   addOption(panel, "New game", startOver);
 }
 
@@ -577,6 +646,49 @@ function eliminationCard(id) {
   };
   requestAnimationFrame(tick);
   return card;
+}
+
+// The trophy screen on the title: endings found and the 13 ways to lose.
+function showTrophies() {
+  const log = readLog();
+  const ids = Object.keys(ELIMINATIONS).sort((a, b) => (a === "B") - (b === "B") || Number(a.slice(1)) - Number(b.slice(1)));
+  const found = ids.filter((id) => log.deaths[id]).length;
+  const panel = openModal("trophies");
+  addCloseX(panel);
+  panel.appendChild(el("h2", "", "Trophies"));
+  panel.appendChild(el("p", "trophy-count",
+    "Endings found " + log.endings.length + "/" + Object.keys(ENDING_NAMES).length +
+    "  ·  Ways to lose found " + found + "/" + ids.length));
+  const endings = el("div", "trophy-endings");
+  Object.keys(ENDING_NAMES).forEach((code) => {
+    const got = log.endings.includes(code);
+    const box = el("div", "trophy-ending" + (got ? " found" : ""));
+    box.appendChild(el("b", "", "Ending " + code));
+    box.appendChild(document.createTextNode(got ? ENDING_NAMES[code] : "???"));
+    endings.appendChild(box);
+  });
+  panel.appendChild(endings);
+  const grid = el("div", "trophy-grid");
+  const where = FX.where;
+  ids.forEach((id) => {
+    const figure = el("figure", "trophy");
+    if (log.deaths[id]) {
+      const card = el("canvas", "pixel");
+      card.width = SW; card.height = SH;
+      card.setAttribute("aria-label", "Elimination: " + KILL_FEED[id]);
+      FX.where = log.deaths[id];
+      drawElimination(card.getContext("2d"), id, 2.5, sprites);
+      figure.appendChild(card);
+      figure.appendChild(el("figcaption", "", "Eliminated by " + KILL_FEED[id]));
+    } else {
+      figure.appendChild(el("div", "locked", "?"));
+      figure.appendChild(el("figcaption", "", "???"));
+    }
+    grid.appendChild(figure);
+  });
+  FX.where = where;
+  panel.appendChild(grid);
+  addOption(panel, "Close", closeModal);
 }
 
 function askStartOver() {
@@ -1922,6 +2034,7 @@ window.addEventListener("blur", () => { held.length = 0; });
 
 $("resume-btn").addEventListener("click", resume);
 $("new-btn").addEventListener("click", askStartOver);
+$("log-btn").addEventListener("click", showTrophies);
 $("health-box").addEventListener("animationend", (e) => e.currentTarget.classList.remove("pulse"));
 $("pause-btn").addEventListener("click", (e) => { e.currentTarget.blur(); pauseGame(); });
 $("mute-btn").addEventListener("click", (e) => { e.currentTarget.blur(); setMuted(!muted); });

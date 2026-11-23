@@ -365,6 +365,7 @@ def build_view(state, message=""):
             for i in state["inventory"]
         ],
         "items_total": len(story.ITEMS),
+        "items_collected": sum(1 for i in story.ITEMS if _had_item(state, i)),   # the Chug Jug counts after it was drunk
         "ending": None,
         "review": None,
     }

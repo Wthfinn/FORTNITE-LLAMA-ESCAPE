@@ -489,6 +489,16 @@ class RememberedChoiceTests(unittest.TestCase):
         self.assertIn("healing", view["inventory"][0]["description"].lower())
         self.assertEqual(view["items_total"], len(story.ITEMS))
 
+    def test_the_page_can_show_how_many_items_were_collected(self):
+        state = game.new_state()
+        self.assertEqual((game.build_view(state)["items_collected"], game.build_view(state)["items_total"]), (0, 2))
+        state = play(state, "land:tilted_towers", "collect:chug_jug")
+        self.assertEqual(game.build_view(state)["items_collected"], 1)
+        state = play(state, "travel:retail_row", "hazard:0", "collect:impulse_grenades")
+        self.assertEqual(game.build_view(state)["items_collected"], 2)
+        state = play(state, "travel:polar_peak", "hazard:0", "storm", "use_chug_jug")
+        self.assertEqual(game.build_view(state)["items_collected"], 2)        # drinking the Chug Jug does not lower it
+
 
 class RejectedActionTests(unittest.TestCase):
     def test_unknown_and_malformed_actions_are_rejected(self):

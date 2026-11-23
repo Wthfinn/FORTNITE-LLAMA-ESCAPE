@@ -60,6 +60,20 @@ class AnimationAndWorldDataTests(unittest.TestCase):
                 self.assertTrue(3.0 <= float(match.group(1)) <= 6.0, "films are 3-6 seconds long")
                 self.assertGreater(len(match.group(2)), 15)
 
+    def test_the_danger_alarm_lasts_four_seconds(self):
+        game_js = (STATIC / "game.js").read_text()
+        self.assertRegex(game_js, r"const ALARM_SECONDS = 4;")
+
+    def test_the_page_can_show_the_trophies_and_the_objective_line(self):
+        game_js = (STATIC / "game.js").read_text()
+        for name in ("function showTrophies", "function recordTrophy", "function readLog",
+                     "function updateObjective", "function inspectItem"):
+            with self.subTest(name=name):
+                self.assertIn(name, game_js)
+        # the trophy screen shows every way of losing: the 12 dangers and the Storm
+        cards = (STATIC / "eliminations.js").read_text()
+        self.assertEqual(len(re.findall(r"(?m)^  (?:H\d+|B): \{ draw\(c, t\) \{", cards)), len(story.HAZARDS) + 1)
+
     def test_every_danger_has_its_own_picture(self):
         pictures = (STATIC / "hazardpics.js").read_text()
         for hazard_id in story.HAZARDS:

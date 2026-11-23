@@ -114,8 +114,8 @@ button:disabled:active { transform: none; }
 #fade.on { opacity: 1; }
 
 /* ----- pop-up windows: choices, danger cards, endings ----- */
-#modal { position: fixed; inset: 0; background: rgba(8, 4, 24, 0.78); display: flex; align-items: center; justify-content: center; padding: 14px; z-index: 10; overflow-y: auto; }
-#modal-panel { position: relative; width: min(640px, 100%); margin: 0; display: flex; flex-direction: column; gap: 10px; }
+#modal { position: fixed; inset: 0; background: rgba(8, 4, 24, 0.78); display: flex; align-items: flex-start; justify-content: center; padding: 14px; z-index: 10; overflow-y: auto; }
+#modal-panel { position: relative; width: min(640px, 100%); margin: auto; display: flex; flex-direction: column; gap: 10px; }
 #modal-panel img.pixel { width: 100%; border: 4px solid #000; }
 #modal-panel canvas.pixel { width: 100%; border: 4px solid #000; image-rendering: pixelated; display: block; }
 #modal-panel img.victory { width: 62%; margin: 0 auto; border: 0; }
@@ -163,7 +163,41 @@ button.danger-option { background: #ff8a3d; box-shadow: inset -3px -3px 0 #c4601
 #modal-panel.ending-c h2 { color: var(--red); }
 @keyframes flash { 50% { border-color: #ffd23f; } }
 
+/* the objective line under the top bar: "Items collected 0/2" and what to do next */
+.objective { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 8px 0 0; padding: 6px 12px; background: rgba(35, 26, 92, 0.75); border: 3px solid #000; font-size: 0.9rem; }
+.objective strong { color: var(--yellow); text-transform: uppercase; letter-spacing: 1px; }
+.objective strong.bump { animation: pop 0.9s steps(9); color: var(--green); }
+.objective span { opacity: 0.9; }
+
+/* the items in the top bar can be clicked to inspect them */
+.inventory li.item { cursor: pointer; }
+.inventory li.item:hover, .inventory li.item:focus-visible { background: rgba(255, 210, 63, 0.25); outline: 2px solid var(--yellow); outline-offset: 1px; }
+#modal-panel.item { border-color: var(--yellow); }
+#modal-panel.item h2 { color: var(--yellow); text-align: center; margin: 0; padding: 0 46px; }
+#modal-panel img.item-picture { width: 128px; margin: 0 auto; border: 0; background: rgba(0, 0, 0, 0.3); padding: 8px; }
+#modal-panel .item-text { margin: 0; font-size: 1.05rem; line-height: 1.5; text-align: center; }
+
+/* the ending cards: which ending, and how the choices led to it */
+#modal-panel .ending-tag { margin: 0; text-align: center; font-size: 0.8rem; letter-spacing: 4px; text-transform: uppercase; opacity: 0.85; }
+#modal-panel .because { margin: 0; padding: 8px 10px; background: rgba(0, 0, 0, 0.3); border-left: 4px solid var(--yellow); font-size: 0.95rem; line-height: 1.45; }
+#modal-panel .review-title { margin: 6px 0 0; font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase; color: var(--yellow); }
+
+/* the trophy screen (reached from the title screen) */
+#modal-panel.trophies { width: min(860px, 100%); }
+#modal-panel.trophies h2 { color: var(--yellow); text-align: center; margin: 0; padding: 0 46px; }
+#modal-panel .trophy-count { margin: 0; text-align: center; font-size: 0.95rem; }
+#modal-panel .trophy-endings { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+#modal-panel .trophy-ending { flex: 1 1 180px; padding: 8px 10px; background: rgba(0, 0, 0, 0.3); border: 3px solid #000; text-align: center; font-size: 0.85rem; }
+#modal-panel .trophy-ending.found { border-color: var(--green); }
+#modal-panel .trophy-ending b { display: block; letter-spacing: 3px; font-size: 0.7rem; opacity: 0.8; }
+#modal-panel .trophy-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+#modal-panel .trophy { margin: 0; }
+#modal-panel .trophy canvas.pixel { border-width: 3px; }
+#modal-panel .trophy .locked { display: flex; align-items: center; justify-content: center; aspect-ratio: 320 / 192; background: #1b1030; border: 3px solid #000; font-size: 1.6rem; color: #5a4cb0; }
+#modal-panel .trophy figcaption { margin-top: 3px; font-size: 0.65rem; line-height: 1.25; opacity: 0.85; text-align: center; }
+@media (max-width: 700px) { #modal-panel .trophy-grid { grid-template-columns: repeat(3, 1fr); } }
+
 @media (prefers-reduced-motion: reduce) {
-  #modal-panel.hazard, #dialog .more, .inventory li.pop { animation: none; }
+  #modal-panel.hazard, #dialog .more, .inventory li.pop, .objective strong.bump { animation: none; }
   #fade { transition: none; }
 }

@@ -23,6 +23,7 @@
       <div class="row">
         <button id="new-btn" type="button">New game</button>
         <button id="resume-btn" type="button">Load game</button>
+        <button id="log-btn" type="button" class="secondary">Trophies</button>
       </div>
       <p class="help">Walk with the arrow keys or WASD. Press SPACE to talk, use things and read signs. Press 1, 2 or 3 to choose.</p>
     </section>
@@ -39,6 +40,7 @@
         <ul id="inventory" class="inventory" aria-label="Inventory"></ul>
         <button id="pause-btn" type="button" class="small secondary">Pause (Esc)</button>
       </div>
+      <p id="objective" class="objective"><strong id="objective-items">Items collected 0/2</strong><span id="objective-goal"></span></p>
       <div class="screen">
         <canvas id="screen" width="960" height="576" aria-label="The island. Walk with the arrow keys."></canvas>
         <div id="dialog" hidden><p id="dialog-text"></p><span class="more">&#9660; SPACE</span></div>
