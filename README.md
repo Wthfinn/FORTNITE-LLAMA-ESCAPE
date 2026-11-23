@@ -29,11 +29,12 @@ Everything is played with the keyboard:
 
 1. Press **New game**. In the Battle Bus press the left and right arrows to pick where to land and SPACE to
    jump. (Press T to talk to the bus driver first if you like.)
-2. Walk around the town. Signposts show where each path leads (for example "RETAIL ROW"). Walk to the end
-   of a path to travel to the next place. Every trip brings a danger with three options. Pick the wrong
-   one and you are eliminated.
-3. Face things marked with a yellow "!" (a door, the vending machine, the supply drop, tracks on the
-   ground, the lookout) and press SPACE to decide or collect.
+2. Walk around the town. Signposts show where each path leads (for example "RETAIL ROW"). Follow a path
+   to the next town. Halfway there, the yellow-black caution tiles start a danger with three options.
+   Pick the wrong one and you are eliminated. You can turn back before you reach the caution tiles.
+3. Things that glow yellow and have a bouncing "!" (a door, the vending machine, the supply drop, tracks
+   on the ground, the lookout) can be used. Stand next to one, and when "Press SPACE to interact"
+   appears, press SPACE to decide or collect.
 4. Reach the Storm from Polar Peak (you need an item to survive it) and search for your Llama.
 
 Your progress is saved in **your own browser** after every action. Close the page and come back later:
@@ -72,6 +73,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python app.py
 ```
+
+If the game ever acts strangely or says it cannot reach the server, close the old game window and start it
+again with `start.command`. It stops an older copy automatically.
 
 Then open http://127.0.0.1:5057 in your browser.
 

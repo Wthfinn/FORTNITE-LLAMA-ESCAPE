@@ -103,26 +103,18 @@ def make_storm_scene():
 
 
 def make_trap_hazard():
+    """The real trap from the asset pack, lying on the Pleasant Park garden path."""
     base = cover(load("scene_pleasant_park.jpg", "RGB"), (W, H))
-    base = ImageEnhance.Brightness(base).enhance(0.85).convert("RGBA")
-    draw = ImageDraw.Draw(base)
-    left, right, y = (int(W * 0.25), int(H * 0.80)), (int(W * 0.75), int(H * 0.74)), None
-    # two posts and a glowing red tripwire across the path
-    for x, top in ((left[0], 520), (right[0], 500)):
-        draw.rectangle((x - 9, top, x + 9, top + 150), fill=(70, 45, 25, 255))
-        draw.ellipse((x - 14, top - 10, x + 14, top + 18), fill=(255, 60, 60, 255))
-    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    gd.line((left[0], 540, right[0], 520), fill=(255, 40, 40, 255), width=10)
-    base.alpha_composite(glow.filter(ImageFilter.GaussianBlur(14)))
-    draw.line((left[0], 540, right[0], 520), fill=(255, 235, 235, 255), width=4)
-    # warning triangle
-    cx, cy, s = W // 2, 300, 120
-    tri = [(cx, cy - s), (cx - s, cy + s * 0.8), (cx + s, cy + s * 0.8)]
-    draw.polygon(tri, fill=(255, 205, 0, 255), outline=(20, 20, 20, 255), width=10)
-    draw.rectangle((cx - 10, cy - 45, cx + 10, cy + 35), fill=(20, 20, 20, 255))
-    draw.ellipse((cx - 11, cy + 48, cx + 11, cy + 70), fill=(20, 20, 20, 255))
-    base.convert("RGB").save(IMG / "hazard_H1.jpg", quality=86, optimize=True)
+    base = ImageEnhance.Brightness(base).enhance(0.9).convert("RGBA")
+    trap = load("prop_trap.png")
+    width = int(W * 0.62)
+    trap = trap.resize((width, round(trap.height * width / trap.width)), Image.LANCZOS)
+    shadow = Image.new("RGBA", trap.size, (0, 0, 0, 0))
+    shadow.putalpha(trap.getchannel("A").point(lambda v: v // 3))
+    x, y = (W - trap.width) // 2, int(H * 0.50)
+    base.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(10)), (x + 14, y + 22))
+    base.alpha_composite(trap, (x, y))
+    base.convert("RGB").save(IMG / "hazard_H1.jpg", quality=88, optimize=True)
 
 
 # ---------- endings ----------

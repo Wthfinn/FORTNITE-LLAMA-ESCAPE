@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fortnite Llama Escape</title>
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_version) }}">
 </head>
 <body data-img="{{ url_for('static', filename='img/') }}" data-audio="{{ url_for('static', filename='audio/') }}">
   <main>
@@ -18,7 +18,7 @@
     </header>
 
     <section id="start" class="panel" hidden>
-      <img class="pixel title" src="{{ url_for('static', filename='img/px/title.png') }}" alt="Your Fortnite character">
+      <img class="title" src="{{ url_for('static', filename='img/player_portrait.jpg') }}" alt="Your Fortnite character">
       <p id="start-note"></p>
       <div class="row">
         <button id="resume-btn" type="button" hidden>Resume game</button>
@@ -44,7 +44,7 @@
 
     <div id="modal" hidden><div id="modal-panel" class="panel"></div></div>
   </main>
-  <script src="{{ url_for('static', filename='world.js') }}"></script>
-  <script src="{{ url_for('static', filename='game.js') }}"></script>
+  <script src="{{ url_for('static', filename='world.js', v=asset_version) }}"></script>
+  <script src="{{ url_for('static', filename='game.js', v=asset_version) }}"></script>
 </body>
 </html>

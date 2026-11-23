@@ -31,6 +31,7 @@ let state = null;          // saved game state (what the server checks)
 let view = null;           // what the server last told us to show
 let scene = null;          // "bus", a town id, or "storm"
 let town = null;           // the definition from world.js
+let path = null;           // while walking between two towns: { left, right, from, to, def }
 let grid = null;
 let busy = false;          // waiting for the server
 let modal = null;          // "menu" | "hazard" | "ending" | "confirm" | null
@@ -40,7 +41,7 @@ let dialogOpen = false;
 let banner = { text: "", sub: "", time: 0 };
 const visited = new Set(); // places whose description was already shown (this visit)
 const held = [];           // arrow keys currently held, last one wins
-const player = { tx: 0, ty: 0, fx: 0, fy: 0, dir: "down", moving: false, prog: 0, step: 0 };
+const player = { tx: 0, ty: 0, fx: 0, fy: 0, last: [0, 0], dir: "down", moving: false, prog: 0, step: 0 };
 const bus = { sel: 0, jumping: false, jt: 0 };
 
 const BUS_ZONES = [
@@ -191,7 +192,9 @@ function showStart(note) {
 
 function updateHud() {
   if (!view) return;
-  $("place").textContent = view.hazard ? "Danger!" : view.scene_name;
+  $("place").textContent = scene === "path" && !view.hazard
+    ? "Path to " + TOWN_NAMES[path.to]
+    : view.hazard ? "Danger!" : view.scene_name;
   const list = $("inventory");
   list.replaceChildren();
   if (!view.inventory.length) list.appendChild(el("li", "empty", "no items"));
@@ -328,6 +331,7 @@ function askStartOver() {
 
 function enterScene(id, fromId) {
   scene = id;
+  path = null;
   Object.assign(player, { moving: false, prog: 0, step: 0, dir: "down" });
   if (id === "bus") {
     Object.assign(bus, { sel: 0, jumping: false, jt: 0 });
@@ -341,10 +345,11 @@ function enterScene(id, fromId) {
   }
   const arrival = fromId && town.exits.find((e) => e.dest === fromId);
   const [sx, sy] = arrival ? arrival.spawn : town.spawn;
-  player.tx = sx; player.ty = sy; player.fx = sx; player.fy = sy;
+  player.tx = sx; player.ty = sy; player.fx = sx; player.fy = sy; player.last = [sx, sy];
   if (arrival) {
-    const side = sx === 0 ? "right" : sx === COLS - 1 ? "left" : sy === 0 ? "down" : sy === ROWS - 1 ? "up" : "down";
-    player.dir = side;
+    // face into the town, away from the edge you came in from
+    const [ex, ey] = arrival.tiles[0];
+    player.dir = ex === 0 ? "right" : ex === COLS - 1 ? "left" : ey === 0 ? "down" : "up";
   }
   banner = { text: view ? view.scene_name : "", sub: "", time: 2600 };
   if (!visited.has(id) && view) {
@@ -354,12 +359,31 @@ function enterScene(id, fromId) {
   updateHud();
 }
 
+// Walk from one town onto the path to another. Nothing is sent to the server yet:
+// the game only counts the trip once the player reaches the danger in the middle.
+function enterPath(fromId, toId) {
+  const def = pathDefinition(fromId, toId);
+  scene = "path";
+  path = { left: def.left, right: def.right, from: fromId, to: toId, def };
+  town = { pal: def.pal, exits: [], signs: def.signs, objects: [], storm: null };
+  grid = def.grid;
+  lc.clearRect(0, 0, VIEW_W, VIEW_H);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) drawTile(lc, grid[y][x], x, y, town.pal);
+  const [sx, sy] = def.ends[fromId].spawn;
+  Object.assign(player, { tx: sx, ty: sy, fx: sx, fy: sy, last: [sx, sy], moving: false, prog: 0, step: 0 });
+  player.dir = fromId === def.left ? "right" : "left";
+  banner = { text: "Path to " + TOWN_NAMES[toId], sub: "", time: 2400 };
+  updateHud();
+}
+
 async function transition(fn) {
   const fade = $("fade");
+  busy = true;
   fade.classList.add("on");
   await new Promise((r) => setTimeout(r, 230));
   fn();
   fade.classList.remove("on");
+  busy = false;
 }
 
 // Is the thing at this tile used up? (read from the saved state)
@@ -386,7 +410,7 @@ async function perform(actionId, onReject) {
   if (busy) return;
   busy = true;
   const before = view;
-  const fromScene = scene;
+  const fromScene = before ? before.scene_id : scene;
   let result;
   try {
     result = await post("/api/action", { state: state, action: actionId });
@@ -428,6 +452,26 @@ function afterAction(before, fromScene) {
   if (view.message) showDialog(view.message);
 }
 
+// What the player can use right now: the thing they face first, then anything
+// they stand on or stand right next to. Used things (already collected or decided)
+// are skipped, so the "Press SPACE" hint only shows when there is something to do.
+function nearbyTarget() {
+  if (!town) return null;
+  const [dx, dy] = DELTA[player.dir];
+  const spots = [[player.tx + dx, player.ty + dy], [player.tx, player.ty],
+    [player.tx + 1, player.ty], [player.tx - 1, player.ty], [player.tx, player.ty + 1], [player.tx, player.ty - 1]];
+  for (const [x, y] of spots) {
+    const obj = objectAt(x, y);
+    if (obj && (obj.kind === "search" || !objDone(obj))) return { kind: "object", obj, x, y };
+    const sign = town.signs.find((sg) => sg.x === x && sg.y === y);
+    if (sign) return { kind: "sign", sign, x, y };
+  }
+  // used-up things still answer when faced directly
+  const [fx, fy] = spots[0];
+  const used = objectAt(fx, fy);
+  return used ? { kind: "object", obj: used, x: fx, y: fy, used: true } : null;
+}
+
 function interact() {
   if (scene === "bus") {
     if (!bus.jumping) {
@@ -437,15 +481,10 @@ function interact() {
     return;
   }
   if (player.moving) return;
-  const [dx, dy] = DELTA[player.dir];
-  const fx = player.tx + dx, fy = player.ty + dy;
-  const obj = objectAt(fx, fy) || objectAt(player.tx, player.ty);
-  if (obj) {
-    useObject(obj);
-    return;
-  }
-  const sign = town.signs.find((s) => s.x === fx && s.y === fy);
-  if (sign) showDialog('The sign says: "' + sign.text + '"');
+  const target = nearbyTarget();
+  if (!target) return;
+  if (target.kind === "sign") showDialog('The sign says: "' + target.sign.text + '"');
+  else useObject(target.obj);
 }
 
 function useObject(o) {
@@ -469,21 +508,34 @@ function talkToDriver() {
 
 function onArrive() {
   const x = player.tx, y = player.ty;
-  const exit = town.exits.find((e) => e.tiles.some(([ex, ey]) => ex === x && ey === y));
-  if (exit) {
-    perform("travel:" + exit.dest, () => stepBack());
+  const on = (tiles) => tiles.some(([tx, ty]) => tx === x && ty === y);
+  if (scene === "path") {
+    if (on(path.def.hazardTiles)) {
+      perform("travel:" + path.to, () => stepBack());      // the danger starts here
+      return;
+    }
+    for (const [townId, end] of Object.entries(path.def.ends)) {
+      if (on(end.tiles)) {                                  // turned back: return to that town
+        const other = townId === path.left ? path.right : path.left;
+        transition(() => enterScene(townId, other));
+        return;
+      }
+    }
     return;
   }
-  if (town.storm && town.storm.tiles.some(([ex, ey]) => ex === x && ey === y)) {
+  const exit = town.exits.find((e) => on(e.tiles));
+  if (exit) {
+    transition(() => enterPath(scene, exit.dest));
+    return;
+  }
+  if (town.storm && on(town.storm.tiles)) {
     perform("storm", () => stepBack());
   }
 }
 
 function stepBack() {
-  // Rejected move: put the player one tile back inside the area.
-  const inward = player.ty === 0 ? [0, 1] : player.ty === ROWS - 1 ? [0, -1]
-    : player.tx === 0 ? [1, 0] : [-1, 0];
-  player.tx += inward[0]; player.ty += inward[1];
+  // Rejected move: put the player back on the tile they came from.
+  player.tx = player.last[0]; player.ty = player.last[1];
   player.fx = player.tx; player.fy = player.ty;
 }
 
@@ -586,14 +638,19 @@ function drawObjects(t) {
     if (objGone(o)) return;
     const done = objDone(o);
     const ox = o.x * T, oy = o.y * T;
-    if (o.sprite) {
-      const img = sprites[o.sprite];
-      if (img.complete && img.naturalWidth) {
-        const bob = o.sprite === "llama" ? Math.round(Math.sin(t / 400) * 1.5) : 0;
-        b.globalAlpha = done ? 0.55 : 1;
-        b.drawImage(img, ox + Math.round((T - img.naturalWidth) / 2), oy + T - img.naturalHeight + bob);
-        b.globalAlpha = 1;
-      }
+    const img = o.sprite ? sprites[o.sprite] : null;
+    const spriteH = img && img.naturalHeight ? img.naturalHeight : T;
+    if (!done) {
+      // yellow glow on the ground under the thing
+      const pulse = 0.28 + 0.2 * Math.sin(t / 280);
+      pixelEllipse(b, ox + 8, oy + 13, 13, 6, "rgba(255,210,63," + pulse.toFixed(2) + ")");
+      pixelEllipse(b, ox + 8, oy + 13, 8, 4, "rgba(255,240,150," + (pulse + 0.12).toFixed(2) + ")");
+    }
+    if (img && img.complete && img.naturalWidth) {
+      const bob = o.sprite === "llama" ? Math.round(Math.sin(t / 400) * 1.5) : 0;
+      b.globalAlpha = done ? 0.55 : 1;
+      b.drawImage(img, ox + Math.round((T - img.naturalWidth) / 2), oy + T - img.naturalHeight + bob);
+      b.globalAlpha = 1;
     }
     if (o.decal === "tracks") {
       const color = done ? "#9b8559" : "#6a4b22";
@@ -607,11 +664,14 @@ function drawObjects(t) {
       px(b, ox + 8, oy - 8, 6, 4, done ? "#ffd23f" : "#e0463c");
     }
     if (o.marker && !done) {
-      const bounce = Math.round(Math.sin(t / 260) * 1.5);
-      const my = oy - (o.sprite ? 8 : 6) + bounce - (o.sprite === "prop_supply_drop" ? 14 : o.sprite === "llama" ? 14 : o.sprite ? 8 : 0);
-      px(b, ox + 6, my, 3, 6, "#1b1030");
-      px(b, ox + 7, my, 1, 4, "#ffd23f");
-      px(b, ox + 7, my + 5, 1, 1, "#ffd23f");
+      // a bouncing yellow exclamation mark above the thing
+      const bounce = Math.round(Math.abs(Math.sin(t / 240)) * 4);
+      const topY = o.decal === "lookout" ? oy - 12 : oy + T - spriteH;
+      const mx = ox + 5, my = topY - 14 - bounce;
+      px(b, mx - 1, my - 1, 8, 13, "#1b1030");
+      px(b, mx, my, 6, 11, "#ffd23f");
+      px(b, mx + 2, my + 1, 2, 5, "#1b1030");
+      px(b, mx + 2, my + 8, 2, 2, "#1b1030");
     }
   });
 }
@@ -623,7 +683,7 @@ function drawWorld(t) {
   if (scene !== "storm") drawStormTiles(t);
   const x = player.fx + (player.tx - player.fx) * player.prog;
   const y = player.fy + (player.ty - player.fy) * player.prog;
-  drawPlayer(b, Math.round(x * T), Math.round(y * T) - 2, player.dir, player.step);
+  drawPlayer(b, Math.round(x * T), Math.round(y * T), player.dir, player.step);
   if (scene === "storm") drawFog(b, t + 5000, 0.18);
 }
 
@@ -667,7 +727,7 @@ function drawBusScene(t) {
     px(b, Math.round(x) - 8, Math.round(y) - 22, 16, 2, "#ff5fa8");
     px(b, Math.round(x) - 10, Math.round(y) - 12, 1, 8, "#fff");
     px(b, Math.round(x) + 9, Math.round(y) - 12, 1, 8, "#fff");
-    drawPlayer(b, Math.round(x) - 8, Math.round(y) - 6, "down", Math.floor(t / 150) % 2);
+    drawPlayer(b, Math.round(x) - 8, Math.round(y) - 2, "down", Math.floor(t / 150) % 2);
     if (bus.jt >= 1 && !busy) {
       bus.jumping = false;
       perform("land:" + sel.id, () => { bus.jumping = false; bus.jt = 0; });
@@ -694,6 +754,25 @@ function drawLabels(t) {
     ctx.fillStyle = "#3b220f"; ctx.textAlign = "center";
     ctx.fillText(s.text, left + w / 2, top + 15);
   });
+  if (!modal && !dialogOpen) {
+    const target = nearbyTarget();
+    if (target && !target.used) {
+      let tileTop = target.y * T;
+      if (target.kind === "object" && target.obj.sprite) {
+        const img = sprites[target.obj.sprite];
+        if (img && img.naturalHeight) tileTop = target.y * T + T - img.naturalHeight;
+      }
+      const label = target.kind === "sign" ? "Press SPACE to read" : "Press SPACE to interact";
+      ctx.font = 'bold 14px "Courier New", Courier, monospace';
+      const w = ctx.measureText(label).width + 16;
+      const cx = Math.max(w / 2 + 4, Math.min(canvas.width - w / 2 - 4, (target.x * T + 8) * SCALE));
+      const cy = Math.max(70, (tileTop - 34) * SCALE);
+      ctx.fillStyle = "#1b1030"; ctx.fillRect(cx - w / 2 - 2, cy - 17, w + 4, 26);
+      ctx.fillStyle = "#fffdf0"; ctx.fillRect(cx - w / 2, cy - 15, w, 22);
+      ctx.fillStyle = "#1b1030"; ctx.textAlign = "center";
+      ctx.fillText(label, cx, cy);
+    }
+  }
   if (banner.time > 0) {
     ctx.globalAlpha = Math.min(1, banner.time / 500);
     outlineText(ctx, banner.text.toUpperCase(), canvas.width / 2, 34, "#ffd23f", 24);
@@ -739,6 +818,7 @@ function update(dt) {
     const nx = player.tx + DELTA[dir][0], ny = player.ty + DELTA[dir][1];
     if (!solidAt(nx, ny)) {
       player.fx = player.tx; player.fy = player.ty;
+      player.last = [player.tx, player.ty];
       player.tx = nx; player.ty = ny;
       player.moving = true; player.prog = 0;
     }

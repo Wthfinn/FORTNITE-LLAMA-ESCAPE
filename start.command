@@ -16,6 +16,15 @@ if [ ! -d .venv ]; then
 fi
 .venv/bin/pip install -q --disable-pip-version-check -r requirements.txt || { read -r -p "Install failed. Press Enter to close..."; exit 1; }
 
+# Stop an older copy of this game that is still running (it would serve outdated files).
+if [ -f .server.pid ]; then
+  OLD_PID=$(cat .server.pid)
+  if [ -n "$OLD_PID" ] && ps -p "$OLD_PID" -o command= 2>/dev/null | grep -q "flask --app app"; then
+    kill "$OLD_PID" 2>/dev/null
+    sleep 1
+  fi
+fi
+
 # Port 5000 is used by macOS (AirPlay), so start at 5057 and use the first free port.
 PORT=5057
 while lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do
@@ -32,4 +41,5 @@ if [ -z "$NO_BROWSER" ]; then
   (sleep 2 && open "$URL") &
 fi
 
+echo $$ > .server.pid
 exec .venv/bin/python -m flask --app app run --host 127.0.0.1 --port "$PORT"

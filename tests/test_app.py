@@ -80,5 +80,15 @@ class WebTests(unittest.TestCase):
         self.assertIn("default-src 'self'", response.headers["Content-Security-Policy"])
 
 
+
+class PageTests(unittest.TestCase):
+    def test_page_loads_world_before_game_script_with_cache_busting(self):
+        html = app_module.app.test_client().get("/").get_data(as_text=True)
+        self.assertLess(html.index("world.js"), html.index("game.js"))
+        self.assertIn("?v=", html)
+        for element_id in ('id="screen"', 'id="modal"', 'id="dialog"', 'id="hud"'):
+            self.assertIn(element_id, html)
+
+
 if __name__ == "__main__":
     unittest.main()

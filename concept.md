@@ -1,6 +1,6 @@
 # Plot Twist – "Where's My Llama?" · Conceptual Foundation
 
-Draft v0.6 · 23 Nov 2026 · based on the Plot Twist BRD v1.0
+Draft v0.7 · 23 Nov 2026 · based on the Plot Twist BRD v1.0
 
 This document tells us **what** we build and **what we don't** before we write any code.
 It stays at the complexity of the BRD on purpose.
@@ -145,7 +145,7 @@ Suggested hazards (texts and options are placeholders the team can change; the d
 
 | ID | Destination | # | Situation | Options |
 |---|---|---|---|---|
-| H1 | Pleasant Park | 1 | A tripwire trap across the garden path | Jump over it · Go around through the hedge · 💀 Sprint straight through |
+| H1 | Pleasant Park | 1 | A spike trap on the garden path | Jump over it · Go around through the hedge · 💀 Sprint straight through |
 | H2 | Pleasant Park | 2 | A squad is camping in the gazebo | Sneak along the fence · Wait until they leave · 💀 Walk past them in the open |
 | H3 | Retail Row | 1 | A rocket is flying straight at you | Build a wall · Dive behind a car · 💀 Keep looking at the shop sign |
 | H4 | Retail Row | 2 | A sniper glints on a rooftop | Zig-zag to cover · Crouch behind the dumpsters · 💀 Stand still to check your map |
@@ -357,8 +357,15 @@ only how the player moves and chooses did.
 - **Bus:** a sky screen. Left/right picks the landing spot, SPACE jumps (`land:<place>`). T talks to the
   bus driver (decision D1).
 - **Towns:** Pleasant Park, Retail Row, Tilted Towers and Polar Peak are four walkable screens
-  (20 x 12 tiles). Each has three signposted paths. **Walking onto the end of a path is the "travel"
-  action** (`travel:<place>`): the server answers with a hazard (danger card) or lets you arrive.
+  (20 x 12 tiles). Each has three signposted exits.
+- **Paths between the towns:** every pair of towns is joined by its own winding path screen. Walking out
+  of a town puts you at the start of that path (the server is not involved yet, and you can turn back at
+  any time). In the middle of the path are yellow-black caution tiles with a "DANGER AHEAD" sign.
+  **Stepping on them is the "travel" action** (`travel:<place>`): the server answers with the next
+  hazard of the destination (danger card) or lets you arrive. Clearing the hazard takes you into the
+  destination town.
+- **Interactables** glow yellow and have a bouncing "!" above them. Standing next to one shows
+  "Press SPACE to interact". The vending machine is only in Retail Row and the supply drop only in Tilted Towers.
 - **Things to use:** the house door (D2), tracks on the ground (D3), the dance floor (D4), the lookout
   (D5), the vending machine and the supply drop. Face them and press SPACE; a menu with the options
   appears (number keys choose).

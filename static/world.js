@@ -14,6 +14,7 @@ const ROWS = 12;
 // t tree  h hedge  f fence  R roof  w wall  W window  D door  s sign  l lamp  i ice
 // K castle  X storm wall  v car  Z wooden roof  Y post  C clock  b brick   (all solid)
 const SOLID_TILES = new Set("thfRwWDslViKXvZYCb".split(""));
+// z = caution tile on a path: stepping on it starts the hazard.
 
 function hash(x, y, n) {
   let h = (x * 73856093) ^ (y * 19349663) ^ (n * 83492791);
@@ -175,6 +176,17 @@ const TILE_DRAWERS = {
     px(c, ox + 9, oy + 4, 3, 3, "#bfe6ff");
     px(c, ox + 2, oy + 12, 3, 3, "#222");
     px(c, ox + 11, oy + 12, 3, 3, "#222");
+  },
+  z(c, ox, oy, tx, ty) {
+    px(c, ox, oy, T, T, "#2b2b35");
+    // diagonal yellow stripes
+    c.fillStyle = "#ffd23f";
+    for (let d = -T; d < T * 2; d += 8) {
+      for (let y = 0; y < T; y++) {
+        const x = d + y;
+        if (x >= 0 && x < T) c.fillRect(ox + x, oy + y, Math.min(4, T - x), 1);
+      }
+    }
   },
   Y(c, ox, oy, tx, ty) {
     TILE_DRAWERS.c(c, ox, oy, tx, ty);
@@ -385,26 +397,123 @@ function loadSprites(baseUrl) {
   return sprites;
 }
 
-// The player: a little fish-headed character, drawn in code (16x16).
+// The player: a fish-headed character (Fishstick style), 16 wide and 24 tall.
+// (x, y) is the top-left of the tile the player stands on; the sprite reaches up
+// into the tile above, like the characters in old handheld RPGs.
 function drawPlayer(c, x, y, dir, step) {
-  const legShift = step ? 1 : 0;
-  px(c, x + 5, y + 13, 2, 3 - legShift, "#c9743a");
-  px(c, x + 9, y + 13, 2, 2 + legShift, "#c9743a");
-  px(c, x + 4, y + 8, 8, 5, "#7fb7c1");           // overalls
-  px(c, x + 4, y + 11, 8, 1, "#5d939d");
-  px(c, x + 3, y + 8, 1, 4, "#f2692d");           // arms
-  px(c, x + 12, y + 8, 1, 4, "#f2692d");
-  px(c, x + 4, y + 3, 8, 5, "#f2692d");           // head
-  px(c, x + 4, y + 1, 8, 2, "#a88b5a");           // hat
-  px(c, x + 7, y, 2, 1, "#a88b5a");
+  const top = y - 8;
+  const up = step ? 1 : 0;
+  const O = "#f2692d", OD = "#b84a14", OL = "#ff9a5a", TEAL = "#7fb7c1", TD = "#5d939d";
+  // legs and shoes (one leg lifts while walking)
+  px(c, x + 4, top + 18, 3, 4 - up, "#c9743a");
+  px(c, x + 9, top + 18, 3, 3 + up, "#c9743a");
+  px(c, x + 3, top + 22 - up, 4, 2, "#5b3418");
+  px(c, x + 9, top + 21 + up, 4, 2, "#5b3418");
+  // body: overalls, belt, pockets
+  px(c, x + 3, top + 12, 10, 7, TEAL);
+  px(c, x + 3, top + 17, 10, 2, TD);
+  px(c, x + 3, top + 15, 10, 2, "#6b4423");
+  px(c, x + 7, top + 15, 2, 2, "#e0b43a");
   if (dir === "down") {
-    px(c, x + 5, y + 4, 2, 2, "#fff"); px(c, x + 9, y + 4, 2, 2, "#fff");
-    px(c, x + 6, y + 5, 1, 1, "#000"); px(c, x + 10, y + 5, 1, 1, "#000");
-    px(c, x + 6, y + 7, 4, 1, "#f6c84c");
-  } else if (dir === "left" || dir === "right") {
-    const ex = dir === "left" ? 4 : 8;
-    px(c, x + ex, y + 4, 3, 2, "#fff");
-    px(c, x + (dir === "left" ? 4 : 10), y + 5, 1, 1, "#000");
-    px(c, x + (dir === "left" ? 3 : 11), y + 7, 2, 1, "#f6c84c");
+    px(c, x + 4, top + 12, 1, 3, "#4f7f88"); px(c, x + 11, top + 12, 1, 3, "#4f7f88");
+    px(c, x + 4, top + 17, 3, 2, "#8a5a2c"); px(c, x + 9, top + 17, 3, 2, "#8a5a2c");
   }
+  // arms
+  if (dir === "left" || dir === "right") {
+    const ax = dir === "left" ? x + 7 : x + 7;
+    px(c, ax, top + 12 + up, 2, 6, O); px(c, ax, top + 17 + up, 2, 2, OD);
+  } else {
+    px(c, x + 1, top + 12 + up, 2, 6, O); px(c, x + 1, top + 17 + up, 2, 2, OD);
+    px(c, x + 13, top + 12 + (1 - up), 2, 6, O); px(c, x + 13, top + 17 + (1 - up), 2, 2, OD);
+  }
+  // head: big orange fish head
+  px(c, x + 3, top + 4, 10, 8, O);
+  px(c, x + 3, top + 4, 1, 8, OD); px(c, x + 12, top + 4, 1, 8, OD);
+  px(c, x + 4, top + 11, 8, 1, OD);
+  px(c, x + 5, top + 5, 3, 2, OL);
+  px(c, x + 5, top + 11, 6, 1, "#c9743a");        // neck
+  // patched cap
+  px(c, x + 7, top, 2, 1, "#b79a63");
+  px(c, x + 4, top + 1, 8, 3, "#a88b5a");
+  px(c, x + 3, top + 3, 10, 1, "#8a6f43");
+  px(c, x + 7, top + 1, 1, 2, "#6b5430");
+  if (dir === "down") {
+    px(c, x + 3, top + 5, 4, 4, "#fff"); px(c, x + 9, top + 5, 4, 4, "#fff");
+    px(c, x + 5, top + 6, 2, 2, "#111"); px(c, x + 9, top + 6, 2, 2, "#111");
+    px(c, x + 5, top + 6, 1, 1, "#fff"); px(c, x + 9, top + 6, 1, 1, "#fff");
+    px(c, x + 5, top + 9, 6, 2, "#f6c84c"); px(c, x + 5, top + 10, 6, 1, "#c9962a");
+  } else if (dir === "left" || dir === "right") {
+    const left = dir === "left";
+    px(c, x + (left ? 3 : 8), top + 5, 5, 4, "#fff");
+    px(c, x + (left ? 3 : 10), top + 6, 2, 2, "#111");
+    px(c, x + (left ? 1 : 11), top + 9, 4, 2, "#f6c84c");
+    px(c, x + (left ? 1 : 11), top + 10, 4, 1, "#c9962a");
+  } else {
+    px(c, x + 4, top + 5, 8, 6, OD);               // back of the head
+    px(c, x + 5, top + 6, 6, 4, O);
+  }
+}
+
+// ---------- paths between the towns ----------
+// Every pair of towns is joined by a winding path. Walking onto the yellow-black
+// caution tiles in the middle starts the danger; the server decides which one.
+
+const TOWN_ORDER = ["pleasant_park", "tilted_towers", "retail_row", "polar_peak"];
+const TOWN_NAMES = {
+  pleasant_park: "PLEASANT PARK", tilted_towers: "TILTED TOWERS",
+  retail_row: "RETAIL ROW", polar_peak: "POLAR PEAK",
+};
+const BIOMES = {
+  pleasant_park: { ground: "g", path: "p", border: "t", pal: "pleasant" },
+  retail_row: { ground: "c", path: "r", border: "b", pal: "retail" },
+  tilted_towers: { ground: "c", path: "r", border: "b", pal: "tilted" },
+  polar_peak: { ground: "n", path: "k", border: "i", pal: "polar" },
+};
+const PATH_HAZARD_TILES = [[8, 6], [9, 6], [8, 7], [9, 7]];
+
+// The path between two towns. The town earlier in TOWN_ORDER is on the left.
+function pathDefinition(a, b) {
+  const left = TOWN_ORDER.indexOf(a) < TOWN_ORDER.indexOf(b) ? a : b;
+  const right = left === a ? b : a;
+  const L = BIOMES[left], R = BIOMES[right];
+  const g = makeGrid("g");
+  const biomeAt = (x) => (x < 10 ? L : R);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) g[y][x] = biomeAt(x).ground;
+  for (let x = 0; x < COLS; x++) { g[0][x] = biomeAt(x).border; g[ROWS - 1][x] = biomeAt(x).border; }
+  for (let y = 0; y < ROWS; y++) { g[y][0] = L.border; g[y][COLS - 1] = R.border; }
+  const lay = (x, y, w, h) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) g[yy][xx] = biomeAt(xx).path; };
+  lay(0, 3, 10, 2);        // the left part of the path
+  lay(8, 3, 2, 7);         // the bend
+  lay(8, 8, 12, 2);        // the right part
+  // decoration, placed by a fixed pattern (so it looks the same every time)
+  for (let y = 1; y < ROWS - 1; y++) {
+    for (let x = 1; x < COLS - 1; x++) {
+      if (g[y][x] !== biomeAt(x).ground) continue;
+      const r = hash(x, y, 7) % 100;
+      const ground = biomeAt(x).ground;
+      if (ground === "g" && r < 14) g[y][x] = "t";
+      else if (ground === "g" && r < 18) g[y][x] = "h";
+      else if (ground === "n" && r < 9) g[y][x] = "i";
+      else if (ground === "c" && r < 5) g[y][x] = "l";
+      else if (ground === "c" && r < 9) g[y][x] = "h";
+    }
+  }
+  PATH_HAZARD_TILES.forEach(([x, y]) => { g[y][x] = "z"; });
+  g[5][2] = "s"; g[7][17] = "s"; g[6][6] = "s";
+  return {
+    left, right,
+    pal: PALETTES[L.pal],
+    grid: g,
+    // the two ends of the path, with the tile where the player appears
+    ends: {
+      [left]: { tiles: [[0, 3], [0, 4]], spawn: [1, 3] },
+      [right]: { tiles: [[19, 8], [19, 9]], spawn: [18, 8] },
+    },
+    hazardTiles: PATH_HAZARD_TILES,
+    signs: [
+      { x: 2, y: 5, text: "\u2190 " + TOWN_NAMES[left] },
+      { x: 17, y: 7, text: TOWN_NAMES[right] + " \u2192" },
+      { x: 6, y: 6, text: "DANGER AHEAD" },
+    ],
+  };
 }

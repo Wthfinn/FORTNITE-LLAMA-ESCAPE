@@ -131,7 +131,7 @@ DECISIONS = {
 HAZARDS = {
     "H1": {
         "destination": "pleasant_park", "order": 1,
-        "situation": "A tripwire trap is stretched across the garden path.",
+        "situation": "A spike trap is hidden on the garden path!",
         "options": [
             {"text": "Jump over it", "deadly": False},
             {"text": "Go around through the hedge", "deadly": False},

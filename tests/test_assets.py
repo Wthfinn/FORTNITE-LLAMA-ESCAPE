@@ -34,7 +34,7 @@ class AssetFileTests(unittest.TestCase):
             self.assertTrue(img(item["prop"]).is_file(), item_id)
 
     def test_page_pictures_and_sounds_exist(self):
-        for name in ("map.jpg", "player_token.png", "player_portrait.jpg", "favicon.png"):
+        for name in ("map.jpg", "player_token.png", "player_portrait.jpg", "favicon.png", "prop_trap.png"):
             self.assertTrue(img(name).is_file(), name)
         for name in SOUNDS:
             self.assertTrue((STATIC / "audio" / name).is_file(), name)
@@ -48,7 +48,7 @@ class AssetFileTests(unittest.TestCase):
 class PixelArtFileTests(unittest.TestCase):
     def test_pixel_pictures_used_by_the_page_exist(self):
         px = STATIC / "img" / "px"
-        names = ["title.png", "avatar.png", "bus.png", "llama.png", "victory_banner.png",
+        names = ["avatar.png", "bus.png", "llama.png", "victory_banner.png",
                  "item_chug_jug.png", "item_impulse_grenades.png",
                  "prop_vending_machine.png", "prop_supply_drop.png"]
         names += [f"hazard_{h}.png" for h in story.HAZARDS]

@@ -77,7 +77,6 @@ if __name__ == "__main__":
         pixel_photo(f"hazard_H{i}.jpg")
     for code in "abc":
         pixel_photo(f"ending_{code}.jpg")
-    pixel_photo("player_portrait.jpg", "title.png")
     for name, (src, height, colors) in SPRITES.items():
         pixel_sprite(src, height, colors, name)
     pixel_avatar()

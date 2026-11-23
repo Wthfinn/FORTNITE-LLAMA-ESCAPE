@@ -7,12 +7,27 @@ new state. Invalid states and not-allowed actions are rejected and change
 nothing.
 """
 
+from pathlib import Path
+
 from flask import Flask, jsonify, render_template, request
 
 import game
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10_000  # a game state is far smaller
+# Always serve the newest page and files, so the browser never mixes an old
+# page with new game code.
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
+_STATIC = Path(app.static_folder)
+
+
+@app.context_processor
+def asset_version():
+    """A number that changes whenever a file in static/ changes (cache busting)."""
+    newest = max((p.stat().st_mtime_ns for p in _STATIC.rglob("*") if p.is_file()), default=0)
+    return {"asset_version": newest}
 
 
 @app.after_request
