@@ -27,16 +27,23 @@ update it when the team changes the design.
   other partner is likely working on, mention it.
 - Story content (scenes, items, decisions, hazards, endings) is data, kept separate from game logic.
 
-## Not decided yet
+## Decisions made (23 Nov 2026)
 
-- **Programming language / setup.** Python with a text (command-line) interface and a JSON save
-  file was suggested but not yet confirmed.
+- **Stack:** Python with Flask (small web server), deployed at a public URL. Required by the team
+  project page: https://2477-introduction-programming.gitlab.io/wiki/team-project/
+- **Saving:** in the player's browser (localStorage). The server keeps no player data and has no secrets.
+- **Structure:** `story.py` (content as data), `game.py` (rules), `app.py` (web server),
+  `templates/` and `static/` (page), `tests/` (unittest). See README.md.
+- **Run the tests:** `python -m unittest discover -s tests -t .`
+- Flavour decisions D1 and D4 stay. Entering the Storm is one-way. Blocked actions are hidden until
+  available. Hazard options keep the same order on screen.
+- Extra features beyond the BRD are not included unless the team project page lists them as required.
+- Team of two (agreed with the professor).
 
-Open design points (also in `concept.md` section 13):
-1. Who writes the scene, hazard and ending texts?
-2. Keep the flavour decisions D1 (thank the bus driver) and D4 (default dance), or replace them?
-3. Is entering the Storm one-way? (Then a player with only the Chug Jug is locked into Ending B.)
-4. Blocked actions: show them with an explanation, or hide them until available?
-5. Hazard options: always in the same order on screen, or shuffled? (The deadly option stays fixed.)
+## Still open
 
-When one of these is decided, update both this list and `concept.md`.
+- Final scene, hazard and ending texts: the current texts in `story.py` are placeholders. One partner
+  rewrites the scene texts, the other the hazard and ending texts. Keep the IDs and the structure.
+- Fill in names and student numbers in README.md, and the deployed URL once it exists.
+
+When something changes, update this file and `concept.md`.

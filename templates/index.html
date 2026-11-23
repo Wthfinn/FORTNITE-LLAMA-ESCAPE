@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fortnite Llama Escape</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main>
+    <h1>Fortnite Llama Escape</h1>
+    <p class="tagline">Your Llama ran away. Find it before the storm does.</p>
+
+    <section id="start" class="card" hidden>
+      <p id="start-note"></p>
+      <div class="buttons">
+        <button id="resume-btn" type="button" hidden>Resume game</button>
+        <button id="new-btn" type="button">New game</button>
+      </div>
+    </section>
+
+    <section id="confirm" class="card warning" hidden>
+      <p>Starting a new game erases your saved progress. Are you sure?</p>
+      <div class="buttons">
+        <button id="confirm-yes" type="button">Yes, start over</button>
+        <button id="confirm-no" type="button" class="secondary">Cancel</button>
+      </div>
+    </section>
+
+    <section id="game" class="card" hidden>
+      <div id="ending" class="ending" hidden>
+        <p id="ending-code" class="ending-code"></p>
+        <h2 id="ending-title"></h2>
+      </div>
+      <h2 id="scene-name"></h2>
+      <p id="scene-text"></p>
+      <p id="message" class="message" role="status" hidden></p>
+      <p id="error" class="error" role="alert" hidden></p>
+      <div id="actions" class="buttons column"></div>
+
+      <div id="review" hidden>
+        <h3>Review</h3>
+        <ul id="review-list"></ul>
+      </div>
+
+      <p class="inventory">Inventory: <span id="inventory"></span></p>
+      <button id="restart-btn" type="button" class="secondary small">New game</button>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='game.js') }}"></script>
+</body>
+</html>

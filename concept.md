@@ -1,6 +1,6 @@
 # Plot Twist – "Where's My Llama?" · Conceptual Foundation
 
-Draft v0.4 · 29 Sep 2026 · based on the Plot Twist BRD v1.0
+Draft v0.5 · 23 Nov 2026 · based on the Plot Twist BRD v1.0
 
 This document tells us **what** we build and **what we don't** before we write any code.
 It stays at the complexity of the BRD on purpose.
@@ -331,12 +331,18 @@ Two shortcuts keep the state small:
 
 ---
 
-## 13. Open points for the team
+## 13. Decisions and open points
 
-1. **Texts:** who writes the scene descriptions, hazard texts and ending texts?
-2. **Flavour decisions D1 and D4:** keep them as they are, or replace them with your own ideas?
-3. **Storm entry is one-way:** OK, or should the player be able to walk back out without searching?
-   (One-way means a player who enters with only the Chug Jug is locked into Ending B.)
-4. **Blocked actions:** show them with an explanation (as above), or hide them until they're available? The BRD allows both.
-5. **Hazard option order:** always list the 3 options in the same order, or shuffle them on screen?
-   (Shuffling the display is harmless; which option is deadly stays fixed.)
+**Decided (23 Nov 2026)**
+- D1 (thank the bus driver) and D4 (default dance) stay as flavour decisions.
+- Entering the Storm is one-way.
+- Blocked actions are hidden until they are available (the Storm action appears at Polar Peak once
+  the player has an item). Trying a blocked action anyway is rejected with an explanation and changes nothing.
+- Hazard options always appear in the same order.
+- Programming language: Python with Flask, deployed as a web app. Progress is saved in the player's browser.
+- One small difference from section 8: a hazard that is on screen is part of the saved state
+  (`pending_hazard`). If the player closes the page during a hazard, they come back to the same hazard,
+  so they cannot reroll it. The trip itself still only finishes once the hazard is answered.
+
+**Still open**
+1. Final scene, hazard and ending texts (current texts are placeholders in `story.py`).
