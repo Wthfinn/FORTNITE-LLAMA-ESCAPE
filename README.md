@@ -6,6 +6,17 @@ storm gets it. There are three endings.
 
 Built for the Nova SBE "Introduction to Programming" team project (Plot Twist).
 
+## Objectives
+
+- Build a small, complete, playable web game for the Plot Twist brief (BRD): a start, rooms to explore, items,
+  decisions, dangers that can end the game and more than one ending.
+- Remember the player's progress after every action, let the player pause, save and exit, and continue the
+  same game later (resume), and ask for confirmation before a new game replaces a save (BRD PT01, A4, A6).
+- Keep the rules in plain Python, separate from the story data and from the drawing code, and cover the rules
+  with automated tests.
+- Publish it as a public web app with a README that explains how to install, run and test it.
+- Learn to work as a team of two with Git and GitHub, and to use an AI coding assistant responsibly.
+
 **Deployed app:** https://fortnite-llama-escape.onrender.com (free hosting: after a quiet period the first load can take about a minute)
 
 ## Team
@@ -16,6 +27,24 @@ Built for the Nova SBE "Introduction to Programming" team project (Plot Twist).
 | Finn Hansel | 77802 |
 
 A team of two (agreed with the professor).
+
+## Who did what
+
+Both of us designed and tested the game together and decided how it should play. In the code, the focus was:
+
+| Team member (GitHub) | Main focus |
+|---|---|
+| **Fabian Ganns** (`DJNachspielzeit`) | **Game design and logic.** The first concept, the structure of the program (the rules in `game.py`, the story data in `story.py`, the Flask server in `app.py`), saving and remembering the player's choices, the automated tests, the first playable version with the walking world, towns, characters and first pictures and sounds, the objective line, item descriptions, ending texts and trophies, and the deployment (Render, pinned packages, caching) and most of the documentation. |
+| **Finn Hansel** (`Wthfinn`) | **Design, visuals and sound.** The pause menu with Save & exit, the storm rules (win by reaching the Llama in time, leaving the Storm, health that stays), the Launch Pad and other danger redesigns, the new pictures on the danger cards, the 13 elimination cards and 12 death films, the Battle Bus, glider and sky scenes, the winner cutscene, the Storm scenes, the extra texture on the paths, and the sound effects and footsteps. |
+
+The full history with every change is in the Git log.
+
+## How we used AI assistance
+
+We each worked with an AI coding assistant (Claude Code) to write and change code. We gave the directions,
+chose and reviewed what to keep, tested the game by playing it, and decided every design question. The
+shared working notes for the assistant are in `CLAUDE.md`, and the commits made with it say so in their
+message.
 
 ## How to play
 
@@ -32,9 +61,9 @@ Everything is played with the keyboard:
 1. Press **New game** (or **Load game** to continue). In the Battle Bus press the arrow keys to pick where
    to land ("Where we droppin?") and SPACE to jump. (Press T to talk to the bus driver first if you like.)
 2. Walk around the town. A pulsing white arrow at the edge of the screen shows where one can walk on to the
-   next town. Press SPACE next to a wooden sign to read its description. Each path has two dangers, one
-   the first time you walk it and one the second time, waiting at the far end of the path. Look for hints
-   on the ground (footprints, shell casings, scorch marks). A danger has three options: two are safe (and
+   next town. The first time you enter a place a message describes it. Each path has two dangers, one
+   the first time you walk it and one the second time, waiting at the far end of the path. Look for what
+   lies on the ground or hides in the brush (a spike trap, a tent, a Launch Pad, a sniper's rifle...). A danger has three options: two are safe (and
    come with a short message that fits the danger), one eliminates you (with a short film). Once both
    dangers of a path are survived, the path is free. On every path you can also stray onto small side
    trails to meet characters from the Fortnite universe. They are only for fun: no items.
@@ -43,7 +72,8 @@ Everything is played with the keyboard:
    appears, press SPACE to decide or collect. The supply drop and the vending machine also offer a second
    option: do nothing now (you can come back later).
 4. Reach the Storm from Polar Peak and get to your Llama. You need the **Chug Jug** to enter. The storm takes
-   4 health every second (100 health = 25 seconds). Your Llama stands on the far side of a valley whose
+   4 health every second (100 health = 25 seconds). You can leave the Storm again through the arrow on its
+   left edge, and the health you lost stays lost. Your Llama stands on the far side of a valley whose
    bridge has crumbled. You can read a note, talk to a sunbather, or use an **Impulse Grenade** at the
    edge of the valley to jump across. At 20 health the game offers you the Chug Jug (+50 health). If you
    run out of health you are eliminated.
@@ -65,12 +95,13 @@ is only used here for a university project). They are in `static/img/` and `stat
 
 - The walking world (grass, paths, houses, trees, signs, snow, the purple storm and the characters) is
   drawn in code in `static/world.js`, as 16x16 pixel tiles.
-- The title picture, the sky scenes (Battle Bus, jump, parachute, supply drop, flight out of the storm) and the
-  12 elimination films are drawn in code in `static/cutscenes.js`, `static/sky.js` and `static/films.js`.
-- The danger cards, ending pictures and item sprites are pixel versions of the pack's pictures
-  (`static/img/px/`), made by `tools/make_pixel_art.py`.
-- A few pictures the pack did not contain (trap, endings, Storm) are composed from the pack's pictures
-  by `tools/make_generated_images.py`.
+- The title picture, the sky scenes (Battle Bus, jump, glider, supply drop, flight out of the storm) and the
+  12 death films are drawn in code in `static/cutscenes.js`, `static/sky.js` and `static/films.js`.
+- The pictures on the danger cards (`static/hazardpics.js`), the elimination cards (`static/eliminations.js`) and
+  the Victory Royale film and card (`static/finale.js`) are also drawn in code.
+- The sound effects (booms, whooshes, footsteps...) are made with the browser's own audio in `static/sfx.js`.
+- Item sprites and some older pictures are pixel versions of the pack's pictures (`static/img/px/`), made by
+  `tools/make_pixel_art.py`; a few more are composed from the pack's pictures by `tools/make_generated_images.py`.
 
 To change the pictures, edit the tool and run it again (`pip install pillow`, then
 `python tools/make_generated_images.py` followed by `python tools/make_pixel_art.py`). The game itself
