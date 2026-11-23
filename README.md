@@ -172,9 +172,14 @@ What this version cannot do, and what we would change with more time:
 ## Deploying
 
 The app is a standard Flask app (`requirements.txt`, `Procfile`, `render.yaml`). To deploy on
-[Render](https://render.com) (free):
+[Render](https://render.com) (free plan):
 
-1. Create a Render account and choose **New → Web Service**, then connect this GitHub repository.
-2. Render reads `render.yaml`. If you enter the settings by hand: build command
-   `pip install -r requirements.txt`, start command `gunicorn app:app`.
-3. When the deploy is finished, copy the public URL into this README.
+1. Create a Render account and choose **New → Web Service**, then connect this GitHub repository
+   (branch `main`).
+2. Enter the settings: runtime **Python 3**, build command `pip install -r requirements.txt`, start command
+   `gunicorn app:app`, instance type **Free**, and the environment variable `PYTHON_VERSION` = `3.12.7`.
+   (Instead, **New → Blueprint** reads all of this from `render.yaml`.)
+3. When the deploy is finished, open the public URL, play a short run, and copy the URL into this README.
+
+The app needs no database and no secrets, so there is nothing else to set up. Every push to `main` deploys
+again automatically when the repository is connected to Render.
