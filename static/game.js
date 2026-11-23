@@ -630,7 +630,7 @@ function showEnding(v) {
     v.review.decisions.forEach((d) => review.appendChild(el("li", "", d.question + " → " + d.answer)));
   }
   panel.appendChild(review);
-  addOption(panel, "New game", startOver);
+  addOption(panel, "Back to the menu", startOver);                       // leads to the title screen, where New game is
 }
 
 // The elimination picture of the way the player lost: drawn in code and animated while the card is open.
