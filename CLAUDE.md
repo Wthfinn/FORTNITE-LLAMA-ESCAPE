@@ -43,6 +43,8 @@ update it when the team changes the design.
   Ending C is only for deadly path hazards. The 3 earlier decisions no longer change the ending. The health bar
   pulses 3 times on entering the storm. The Chug Jug can be drunk
   once in the storm (server action `use_chug_jug`, +50 health in the page). Details: `concept.md` sections 15 and 16.
+- **Danger card pictures:** `static/hazardpics.js` draws one still pixel picture per danger (all except H6, which is being
+  redesigned and still shows its old picture). Ending cards have no "ENDING X" label; a hazard death shows no decision list.
 - **Death films:** `static/films.js` has the 12 elimination films (camera push-ins, screen shake, black bars, fades,
   no talking, only pictures). `cinematic()` wraps every film. The hazard alarm lasts 6 seconds (`ALARM_SECONDS`).
 - **Elimination cards:** `static/eliminations.js` draws one pixel picture per way of losing (12 hazard deaths + the

@@ -486,7 +486,7 @@ const ALARM_SECONDS = 6;
 function showHazard(v) {
   const panel = openModal("hazard");
   panel.appendChild(el("h2", "", "Danger!"));
-  panel.appendChild(pxImage(v.hazard.image));
+  panel.appendChild(hazardPicture(v.hazard.id, sprites) || pxImage(v.hazard.image));     // H6 keeps its old picture until it is redesigned
   panel.appendChild(el("p", "question", v.hazard.situation));
   const buttons = v.choices.map((choice) => addOption(panel, choice.label, () => {
     closeModal();
@@ -534,7 +534,6 @@ function showHazard(v) {
 
 function showEnding(v) {
   const panel = openModal("ending ending-" + v.ending.code.toLowerCase());
-  panel.appendChild(el("p", "code", "ENDING " + v.ending.code));
   const card = v.ending.code !== "A" && ELIMINATIONS[extras.death];       // the elimination card has its own big banner
   if (!card || v.ending.code !== "C") panel.appendChild(el("h2", "", v.ending.title));
   panel.appendChild(card ? eliminationCard(extras.death) : pxImage(v.ending.image));
@@ -545,10 +544,12 @@ function showEnding(v) {
     panel.appendChild(victory);
   }
   panel.appendChild(el("p", "question", v.ending.text));
-  const review = el("ul", "review");
-  v.review.decisions.forEach((d) => review.appendChild(el("li", "", d.question + " → " + d.answer)));
-  review.appendChild(el("li", "", "Dangers survived: " + v.review.hazards_survived));
-  panel.appendChild(review);
+  if (v.ending.code !== "C") {                                          // no breakdown when a danger on a path got the player
+    const review = el("ul", "review");
+    v.review.decisions.forEach((d) => review.appendChild(el("li", "", d.question + " → " + d.answer)));
+    review.appendChild(el("li", "", "Dangers survived: " + v.review.hazards_survived));
+    panel.appendChild(review);
+  }
   addOption(panel, "New game", startOver);
 }
 
