@@ -43,8 +43,8 @@ update it when the team changes the design.
   Ending C is only for deadly path hazards. The 3 earlier decisions no longer change the ending. The health bar
   pulses 3 times on entering the storm. The Chug Jug can be drunk
   once in the storm (server action `use_chug_jug`, +50 health in the page). Details: `concept.md` sections 15 and 16.
-- **Danger card pictures:** `static/hazardpics.js` draws one still pixel picture per danger. Ending cards have no "ENDING X"
-  label; a hazard death shows no decision list. The Launch Pad (H6) is drawn by `drawLaunchPad` in `static/world.js`, used on
+- **Danger card pictures:** `static/hazardpics.js` draws one still pixel picture per danger. Ending cards say "Ending A/B/C" and explain how the
+  choices led there (`ending.because`, `review.items`, `review.dangers`). The Launch Pad (H6) is drawn by `drawLaunchPad` in `static/world.js`, used on
   the path, the danger card, the death film and the elimination card.
 - **Settings match the path:** a danger sits at the far end of its path (icy ones always in Polar Peak), so the films, danger
   pictures and elimination cards are drawn in the setting there (`FX.where`: meadow, tilted, retail or snow, bright daytime like the
@@ -54,7 +54,7 @@ update it when the team changes the design.
   6-second jump film (`drawBusJump`), the glider landings, the supply drop, the title picture, the dance disco and the
   flight out of the Storm, all with the same cinematic camera as the death films and no spoken words.
 - **Death films:** `static/films.js` has the 12 elimination films (camera push-ins, screen shake, black bars, fades,
-  no talking, only pictures). `cinematic()` wraps every film. The hazard alarm lasts 6 seconds (`ALARM_SECONDS`).
+  no talking, only pictures). `cinematic()` wraps every film. The hazard alarm lasts 4 seconds (`ALARM_SECONDS`).
 - **Elimination cards:** `static/eliminations.js` draws one pixel picture per way of losing (12 hazard deaths + the
   Storm, Ending B) with an ELIMINATED banner and a kill-feed line. The page remembers which one in `extras.death`.
 - **Run the tests:** `python -m unittest discover -s tests -t .` (the `.venv` also works)
@@ -64,6 +64,11 @@ update it when the team changes the design.
   available. The deadly hazard option moves around (1st, 2nd or 3rd, fixed per hazard).
   Only one sign is left on the island: the storm warning in Polar Peak. Places are described by a pop-up on first entry.
   The summit of Polar Peak can only be reached from the bottom of the mountain path.
+- **Remembered choices (BRD PT04):** every answer at a danger is saved in `hazard_choices`; the vending machine and
+  supply drop choices are the inventory. Texts are in `story.py` (`CHOICE_LINES`, `ENDING_BECAUSE`). The page shows
+  "Items collected 0/2" under the top bar, items can be clicked to inspect them, and the title has a **Trophies** screen
+  (browser key `fortnite-llama-escape-log`). Details: `concept.md` section 17.
+- **Safety:** `validate_state` must never crash on odd values (tests try every field); `requirements.txt` pins every package.
 - **Pause menu (Esc / P):** Resume, New game, Save & exit. Save & exit stores the exact position in a
   second browser key (`SNAPSHOT_KEY` in `static/game.js`) and returns to the title screen. One save slot.
 - Extra features beyond the BRD are not included unless the team project page lists them as required.
@@ -73,6 +78,6 @@ update it when the team changes the design.
 
 - Final scene, hazard and ending texts: the current texts in `story.py` are placeholders. One partner
   rewrites the scene texts, the other the hazard and ending texts. Keep the IDs and the structure.
-- Fill in names and student numbers in README.md, and the deployed URL once it exists.
+- Fill in the deployed URL in README.md once it exists (names and student numbers are in).
 
 When something changes, update this file and `concept.md`.

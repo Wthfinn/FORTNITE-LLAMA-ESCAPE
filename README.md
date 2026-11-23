@@ -12,8 +12,10 @@ Built for the Nova SBE "Introduction to Programming" team project (Plot Twist).
 
 | Name | Student number |
 |---|---|
-| TODO: full name | TODO |
-| TODO: full name | TODO |
+| Fabian Ganns | 77735 |
+| Finn Hansel | 77802 |
+
+A team of two (agreed with the professor).
 
 ## How to play
 
@@ -46,6 +48,11 @@ Everything is played with the keyboard:
    edge of the valley to jump across. At 20 health the game offers you the Chug Jug (+50 health). If you
    run out of health you are eliminated.
 
+The line under the top bar shows **Items collected 0/2** (the number rises when an item is really
+collected) and what to do next. Click an item in the top bar to read what it does. The **Trophies**
+button on the title screen shows which of the 3 endings and which of the 13 ways to lose you have found
+so far (kept in your browser, also across new games).
+
 Your progress is saved in **your own browser** after every action. Press **Esc** (or the **Pause** button)
 to pause. The pause menu has **Resume**, **New game** and **Save & exit**. Save & exit also remembers exactly
 where you stand and takes you back to the title screen, where **Load game** brings you back to that spot.
@@ -58,8 +65,8 @@ is only used here for a university project). They are in `static/img/` and `stat
 
 - The walking world (grass, paths, houses, trees, signs, snow, the purple storm and the characters) is
   drawn in code in `static/world.js`, as 16x16 pixel tiles.
-- The title picture, the jump out of the Battle Bus, the 12 elimination films and the jump out of the storm
-  are drawn in code in `static/cutscenes.js`.
+- The title picture, the sky scenes (Battle Bus, jump, parachute, supply drop, flight out of the storm) and the
+  12 elimination films are drawn in code in `static/cutscenes.js`, `static/sky.js` and `static/films.js`.
 - The danger cards, ending pictures and item sprites are pixel versions of the pack's pictures
   (`static/img/px/`), made by `tools/make_pixel_art.py`.
 - A few pictures the pack did not contain (trap, endings, Storm) are composed from the pack's pictures
@@ -102,8 +109,10 @@ python -m unittest discover -s tests -t .
 ```
 
 The tests cover the game rules (accepted and rejected actions, locked route, no duplicate items,
-saving and loading, all three endings, broken or cheated game states) and the web server (valid and
-invalid requests, security headers).
+saving and loading, all three endings, remembered decisions, broken or cheated game states, and odd
+values such as lists in any field of the state) and the web server (valid and invalid requests,
+security headers, caching). They do **not** cover the drawing, animation and keyboard code in the
+browser (`static/*.js`); that was checked by playing the game.
 
 ## How it is built
 
@@ -114,6 +123,9 @@ invalid requests, security headers).
 | `app.py` | Small Flask web server. Receives the saved state and an action, asks `game.py`, sends back the result. |
 | `templates/index.html`, `static/style.css` | The page around the game screen. |
 | `static/world.js` | The walking world: tiles, the five town maps, signposts, exits, the player sprite. |
+| `static/cutscenes.js`, `static/sky.js` | The title picture and the scenes in the sky (bus, jump, parachute, supply drop, flight out of the storm). |
+| `static/hazardpics.js` | One pixel picture per danger card. |
+| `requirements.txt` | Every package pinned to an exact version (including the ones Flask needs itself). |
 | `static/films.js` | The 12 death films (one per danger) with a cinematic camera, bars, shake and fades. |
 | `static/eliminations.js` | The 13 elimination pictures (one per way of losing) with the ELIMINATED banner and kill-feed line. |
 | `static/game.js` | Keyboard, drawing, menus and danger cards. Talks to the server and saves the state in the browser (localStorage). |
@@ -121,9 +133,41 @@ invalid requests, security headers).
 | `tests/` | Automated tests (rules, web server, and that every picture and sound exists). |
 | `concept.md` | The game design (concepts, map, items, decisions, hazards, endings, data model). |
 
+### Remembered decisions (BRD PT04)
+
+The game remembers what the player chose and shows it in the text of the ending:
+
+- **Items.** Taking the Impulse Grenades from the vending machine (or saving a penny instead) and taking the
+  Chug Jug from the supply drop are remembered in the inventory. The Chug Jug opens the gate to the Storm
+  (a blocked action is hidden and explained by the referee). The Impulse Grenades decide the ending: with
+  them the player jumps out of the Storm (Ending A), without them there is no way across the valley
+  (Ending B).
+- **Every answer at a danger** is remembered in the saved game (`hazard_choices`, plus `used_hazards` for the
+  survived ones). A survived danger changes what the path does next time (its second danger, then it is
+  free). A deadly answer ends the game (Ending C).
+- **The ending card** says "Ending A/B/C", explains in a sentence how the choices led there ("You never took the
+  Impulse Grenades..."), and lists the items taken and the answer chosen at each danger.
+- The five small decisions (thank the driver, loot the house, dance, follow the tracks, climb the summit)
+  are only flavour: they are remembered and listed on the card of Ending A and B, but change nothing in the rules.
+
 Where is the data stored? Only in the player's browser. The server keeps no player data and has no
 database or secrets. Because the browser sends its state to the server, the server checks every state
 and every action (`game.validate_state`) and rejects anything invalid. A player can only cheat their own game.
+
+## Limits and how it could change
+
+What this version cannot do, and what we would change with more time:
+
+| Limit | Why | How it could change |
+|---|---|---|
+| The storm timer and health run in the browser. The server checks that every state and action is valid, but not how much time passed. | The server keeps no player data, so it cannot know when the player entered the Storm. A player can cheat their own game (for example by editing the saved game or the page). | Keep the time on the server, or sign the saved game with a secret so it cannot be edited. |
+| A save lives in one browser (`localStorage`). No accounts, no saving across devices, and clearing the browser data deletes it. | Simplest way to keep progress with no database and no secrets (BRD: the app must work without a paid or external service). | Accounts and a small database, saves on the server. |
+| No automated tests for the browser code (drawing, animation, keyboard, the storm health). | The rules are in Python and fully tested; the page code was tested by playing. | Browser tests, for example with Playwright. |
+| The Chug Jug is used up when drunk. | BRD rule R2 says the *required* release uses reusable items. Opening the Storm gate keeps working because the gate stays open once entered (`storm_opened`); the Impulse Grenades are never used up. | Make the Chug Jug reusable, or keep it as it is. |
+| Fortnite pictures and music belong to Epic Games. | Used only for this university project. | Replace them with our own art and sound. |
+| Free hosting sleeps when nobody uses the app, so the first load can take about a minute. | Render's free plan. | A paid plan, or open the page before a demo. |
+| Keyboard only, laid out for a laptop screen. | Decision of the team. | Touch controls and a mobile layout. |
+| Two people, one public repository. | Team of two (agreed with the professor). | More paths, items and endings are only new data in `story.py` plus drawing code. |
 
 ## Deploying
 

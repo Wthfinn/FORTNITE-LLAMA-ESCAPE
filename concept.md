@@ -466,3 +466,23 @@ These changes replace the older text where they differ.
 - At 20 health the page offers the Chug Jug: new server action `use_chug_jug` (only in the Storm, removes
   the item from the inventory); the page adds 50 health. The remaining health is still kept in the browser.
 - Reading the note or talking keeps the health dropping; menus, films and the Chug Jug offer pause it.
+
+## 17. Changes made on 23 Nov (night)
+
+- **Remembered choices (BRD PT04).** The saved game has a new optional field `hazard_choices`
+  (`{"H2": 0, ...}`, the number of the option chosen at each danger, deadly one included). The vending
+  machine / supply drop choices are the inventory. The ending view (`game.build_view`) now has
+  `ending.because` (one sentence: how the choices led to this ending) and `review.items` and
+  `review.dangers` (one line per item and per danger). Texts live in `story.py`
+  (`CHOICE_LINES`, `ENDING_BECAUSE`). The five small flavour decisions still change nothing.
+- **Items can be inspected.** Every item has a `description`; clicking it in the top bar opens a card.
+- **Objective line.** Under the top bar: "Items collected 0/2" (server field `items_collected`; the
+  Chug Jug still counts after it was drunk) and one sentence of what to do next.
+- **Ending cards** say "Ending A/B/C" again, list how the choices led there, and show the Victory Royale
+  banner only once. Ending C lists the dangers faced.
+- **Trophies** on the title screen: endings found (of 3) and ways to lose found (of 13). Kept in a third
+  browser key (`fortnite-llama-escape-log`), also across new games. Nothing about it is in the rules.
+- **The danger alarm lasts 4 seconds** (was 6).
+- **Safety.** `validate_state` accepts any JSON value without crashing (a list in a field used to cause a
+  server error); the answer is always "valid" or `StateError` (HTTP 400). All packages are pinned.
+  Pictures and sounds are cached by the browser for an hour; the music was shrunk from 6.8 to 1.8 MB.
