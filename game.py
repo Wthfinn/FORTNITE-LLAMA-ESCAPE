@@ -157,12 +157,13 @@ def _has_storm_gear(state):
 
 
 def storm_ending(state):
-    """Ending 'A' or 'B', decided when the player searches in the Storm."""
-    right_choices = all(
-        state["decisions"][d] is True
-        for d, v in story.DECISIONS.items() if v["affects_ending"]
-    )
-    if right_choices and story.GOOD_ENDING_ITEM in state["inventory"]:
+    """Ending 'A' or 'B', decided when the player reaches the Llama in the Storm.
+
+    The page only sends "search" when the player lands next to the Llama with
+    health left, so the only thing the rules check is the Impulse Grenades.
+    The earlier decisions do not matter for the ending.
+    """
+    if story.GOOD_ENDING_ITEM in state["inventory"]:
         return "A"
     return "B"
 
@@ -231,8 +232,8 @@ def apply_action(state, action_id):
 
     if action_id == "storm_timeout":
         new["status"] = "ended"
-        new["ending"] = "C"
-        return new, story.ENDINGS["C"]["text"]
+        new["ending"] = "B"                      # the health ran out in the Storm: lost in the storm
+        return new, story.ENDINGS["B"]["text"]
 
     # kind == "search"
     new["status"] = "ended"

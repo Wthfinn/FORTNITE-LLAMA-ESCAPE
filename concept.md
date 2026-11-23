@@ -146,7 +146,7 @@ Suggested hazards (texts and options are placeholders the team can change; the d
 | ID | Destination | # | Situation | Options |
 |---|---|---|---|---|
 | H1 | Pleasant Park | 1 | A spike trap on the garden path | Jump over it · Go around through the hedge · 💀 Sprint straight through |
-| H2 | Pleasant Park | 2 | A squad is camping in the gazebo | Sneak along the fence · Wait until they leave · 💀 Walk past them in the open |
+| H2 | Pleasant Park | 2 | A squad is camping right ahead | Sneak along the fence · Wait until they leave · 💀 Walk past them in the open |
 | H3 | Retail Row | 1 | A rocket is flying straight at you | Build a wall · Dive behind a car · 💀 Keep looking at the shop sign |
 | H4 | Retail Row | 2 | A sniper glints on a rooftop | Zig-zag to cover · Crouch behind the dumpsters · 💀 Stand still to check your map |
 | H5 | Tilted Towers | 1 | An enemy team smokes you from the clock tower | Retreat behind a building · Build a ramp for cover · 💀 Push them alone |
@@ -163,20 +163,20 @@ Suggested hazards (texts and options are placeholders the team can change; the d
 
 | Ending | Title | When | Text idea |
 |---|---|---|---|
-| **A** | "Llama Found!" | At *Search for the llama*: D2, D3 and D5 made correctly **AND** has Impulse Grenades | You find the llama and launch both of you out of the storm. |
-| **B** | "Lost in the Storm" | At *Search for the llama*: every other case | You find the llama but can't get it out in time. Both of you are eliminated. |
+| **A** | "Llama Found!" | The player lands next to the llama with health left. Needs the Impulse Grenades (and the Chug Jug, which opened the storm). | You find the llama and launch both of you out of the storm. Victory! |
+| **B** | "Lost in the Storm" | The health runs out in the Storm, before the llama is reached (also while flying across the valley). | The storm drains your health and you are lost in the storm. |
 | **C** | "Eliminated" | Immediately when the player picks a deadly hazard option | You were eliminated before you could find your llama. |
 
-Ending rule in the Storm:
+Ending rule in the Storm (the earlier decisions D2, D3 and D5 no longer matter):
 
-| Right decisions (D2, D3, D5) | Grenades | Chug Jug | Ending |
-|---|---|---|---|
-| all three | ✅ | ✅ or ❌ | **A** |
-| all three | ❌ | ✅ | B |
-| not all three | any | any | B |
+| Grenades | Reaches the llama before health hits 0 | Ending |
+|---|---|---|
+| yes | yes | **A** (win) |
+| any | no (health hits 0, also mid-jump) | B |
+| no | (cannot cross the valley) | B once the health runs out |
 
-All endings are reachable from a new game (BRD R4): either item gets the player into the Storm
-(→ B), the right decisions plus the grenades give A, and any deadly hazard option gives C.
+All endings are reachable from a new game (BRD R4): the Chug Jug gets the player into the Storm, the
+grenades plus enough health give A, running out of health gives B, and any deadly hazard option gives C.
 
 Once an ending is reached (PT05):
 - It is clearly shown as **ENDING A** / **B** / **C**.
@@ -338,7 +338,7 @@ Two shortcuts keep the state small:
 - Entering the Storm is one-way.
 - Blocked actions are hidden until they are available (the Storm action appears at Polar Peak once
   the player has an item). Trying a blocked action anyway is rejected with an explanation and changes nothing.
-- Hazard options always appear in the same order.
+- Hazard options keep a fixed order per hazard, but the deadly option is not always the third one.
 - Programming language: Python with Flask, deployed as a web app. Progress is saved in the player's browser.
 - One small difference from section 8: a hazard that is on screen is part of the saved state
   (`pending_hazard`). If the player closes the page during a hazard, they come back to the same hazard,
@@ -406,7 +406,9 @@ so it needs both items.
 
 **Health in the storm.** The player has 100 health. Nothing outside the storm hurts. Inside the storm the
 health drops by 5 every second (not while a message or menu is open). At 0 the page sends the new action
-`storm_timeout` and the game ends with Ending C ("Eliminated"). The server accepts `storm_timeout` only in
+`storm_timeout` and the game ends with Ending B ("Lost in the Storm"). The health keeps dropping while the
+player flies across the valley; the page only sends `search` (the win) when the player lands next to the llama
+with health left. The health bar pulses three times when the player enters the Storm. The server accepts `storm_timeout` only in
 the Storm. The remaining health is kept in the browser, so resuming in the storm continues where it was.
 
 **Other additions.**

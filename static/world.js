@@ -17,6 +17,8 @@ const ROWS = 12;
 // walkable: P wooden planks (the old bridge)
 const SOLID_TILES = new Set("thfRwWDslViKXvZYCbBouaqOLQVT".split(""));
 
+function smoothStep(p) { return p * p * (3 - 2 * p); }
+
 function hash(x, y, n) {
   let h = (x * 73856093) ^ (y * 19349663) ^ (n * 83492791);
   h = (h ^ (h >>> 13)) * 1274126177;
@@ -431,15 +433,24 @@ function supermarketFront(c, x, y, w, h) {        // x,y,w,h in pixels
   px(c, x + w / 2 - 1, y + h - 17, 2, 17, "#3c3f4f");
 }
 
-function car(c, x, y, color) {                    // 24 x 12 pixels
-  px(c, x + 1, y + 4, 22, 7, color);
-  px(c, x + 5, y + 1, 13, 5, color);
-  px(c, x + 6, y + 2, 5, 4, "#bfe6ff");
-  px(c, x + 12, y + 2, 5, 4, "#bfe6ff");
-  px(c, x + 1, y + 8, 22, 1, "rgba(0,0,0,0.25)");
-  px(c, x + 2, y + 9, 5, 3, "#1b1b22");
-  px(c, x + 16, y + 9, 5, 3, "#1b1b22");
-  px(c, x + 21, y + 5, 2, 2, "#ffe680");
+function car(c, x, y, color) {                    // 32 x 20 pixels: fills its two parking tiles and rises a little above them
+  ellipse(c, x + 16, y + 19, 15, 2, "rgba(0,0,0,0.3)");
+  px(c, x + 6, y + 1, 19, 9, color);                                // the cabin
+  px(c, x + 5, y + 3, 1, 7, color); px(c, x + 25, y + 3, 1, 7, color);
+  px(c, x + 7, y + 1, 17, 1, "rgba(255,255,255,0.35)");            // roof shine
+  px(c, x + 8, y + 3, 7, 6, "#bfe6ff"); px(c, x + 16, y + 3, 7, 6, "#bfe6ff");      // the two side windows
+  px(c, x + 8, y + 3, 7, 1, "#e8f6ff"); px(c, x + 16, y + 3, 7, 1, "#e8f6ff");
+  px(c, x + 15, y + 3, 1, 6, color);
+  px(c, x, y + 9, 32, 8, color);                                    // the body
+  px(c, x, y + 9, 32, 1, "rgba(255,255,255,0.3)");
+  px(c, x, y + 14, 32, 3, "rgba(0,0,0,0.28)");                      // the shaded lower part
+  px(c, x + 15, y + 10, 1, 5, "rgba(0,0,0,0.3)");                  // door line
+  px(c, x + 11, y + 12, 3, 1, "rgba(0,0,0,0.4)"); px(c, x + 18, y + 12, 3, 1, "rgba(0,0,0,0.4)");   // door handles
+  px(c, x + 29, y + 11, 3, 3, "#ffe680"); px(c, x, y + 11, 2, 3, "#e0463c");                          // headlight and taillight
+  px(c, x - 1, y + 15, 34, 2, "#9a9fae");                           // bumpers
+  [8, 24].forEach((wx) => {                                         // the wheels
+    ellipse(c, x + wx, y + 17, 4, 4, "#14141c"); ellipse(c, x + wx, y + 17, 2, 2, "#b8bdc9"); px(c, x + wx, y + 17, 1, 1, "#14141c");
+  });
 }
 
 function waterTower(c, x, y) {
@@ -489,7 +500,6 @@ function buildTiltedTowers() {
   g[0][9] = "r"; g[0][10] = "r"; g[5][0] = "r"; g[6][0] = "r"; g[5][19] = "r"; g[6][19] = "r";
   g[9][2] = "o"; g[9][17] = "o"; g[10][8] = "o"; g[10][12] = "o";
   g[8][7] = "l"; g[8][12] = "l";
-  g[7][2] = "s"; g[7][17] = "s"; g[3][11] = "s";
   return g;
 }
 
@@ -518,7 +528,6 @@ function buildRetailRow() {
   g[5][0] = "r"; g[6][0] = "r"; g[3][19] = "e"; g[4][19] = "e"; g[11][9] = "r"; g[11][10] = "r";
   [[2, 8, 2], [6, 10, 2], [16, 10, 2]].forEach(([x, y, w]) => fillRect(g, x, y, w, 1, "B"));   // parked cars
   g[7][1] = "u"; g[10][18] = "u"; g[7][18] = "u"; g[4][7] = "l"; g[4][13] = "l"; g[8][12] = "l";
-  g[4][2] = "s"; g[4][17] = "s"; g[10][8] = "s";
   return g;
 }
 
@@ -530,9 +539,9 @@ function decorRetailRow(c) {
   shopFront(c, 1 * T, 0, 5 * T, 4 * T, { label: "SHOP", stripeA: "#2f9e4f" });
   supermarketFront(c, 6 * T, 0, 8 * T, 4 * T);
   shopFront(c, 14 * T, 0, 5 * T, 4 * T, { label: "DINER", stripeA: "#d93a3a", wall: "#f3e6c8" });
-  car(c, 2 * T + 4, 8 * T + 3, "#c0392b");
-  car(c, 6 * T + 4, 10 * T + 3, "#3a6fe0");
-  car(c, 16 * T + 4, 10 * T + 3, "#e0b030");
+  car(c, 2 * T, 8 * T - 3, "#c0392b");
+  car(c, 6 * T, 10 * T - 3, "#3a6fe0");
+  car(c, 16 * T, 10 * T - 3, "#e0b030");
 }
 
 // ---- the supermarket: 12 shelves, each with its own groceries (nothing to interact with) ----
@@ -691,7 +700,6 @@ function buildPleasantPark() {
     [2, 0, "a"], [9, 0, "q"], [3, 19, "q"], [9, 19, "a"], [8, 0, "a"]].forEach(([y, x, ch]) => { g[y][x] = ch; });
   fillRect(g, 3, 8, 3, 2, "B");                                         // the gazebo
   fillRect(g, 1, 10, 4, 1, "h");
-  g[4][17] = "s"; g[9][8] = "s"; g[1][11] = "s";
   return g;
 }
 
@@ -726,11 +734,11 @@ function buildPolarPeak() {
   fillRect(g, 8, 1, 4, 4, "k");
   fillRect(g, 0, 1, 1, 2, "n"); fillRect(g, 19, 5, 1, 2, "n"); fillRect(g, 9, 11, 2, 1, "n");
   // the mountain: solid, except for the winding path up to the summit
-  const top = { 1: 6, 2: 4, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7 };
+  const top = { 1: 6, 2: 4, 3: 3, 4: 4, 5: 5, 6: 5, 7: 6 };      // closed above and beside the path: the only way up starts at the bottom
   Object.entries(top).forEach(([x, y0]) => { for (let y = y0; y <= 10; y++) g[y][Number(x)] = "B"; });
   MOUNTAIN_PATH.forEach(([x, y]) => { g[y][x] = "k"; });
   g[10][14] = "i"; g[8][13] = "i"; g[9][16] = "i";
-  g[1][2] = "s"; g[7][17] = "s"; g[9][8] = "s"; g[7][12] = "s";
+  g[7][12] = "s";                                                   // the only sign left: the storm warning
   return g;
 }
 
@@ -823,18 +831,15 @@ function decorStorm(c) {
   ellipse(c, 16 * T + 8, 5 * T + 14, 14, 4, "rgba(255,190,255,0.3)");
 }
 
-// What the signs say when you read them (sarcastic on purpose).
+// The only sign left on the island: the storm warning in Polar Peak (sarcastic on purpose).
+// The places themselves are described by a pop-up the first time the player enters them.
 const SIGN_TEXT = {
-  polar_peak: "A cold and barren wasteland with nasty surprises around every icy bend. Pack a jacket. And a will.",
-  tilted_towers: "Welcome to Tilted Towers! Population: everyone who ever dropped here and instantly regretted it.",
-  pleasant_park: "Pleasant Park. Lovely lawns, friendly neighbours, and at least one squad hiding in a gazebo. Nothing suspicious.",
-  retail_row: "Retail Row: shop 'til you drop! Mostly the dropping part. Parking is free. Survival is not.",
   storm: "THE STORM. Purple, pretty and deadly, like a unicorn with a grudge. Healing items strongly recommended.",
 };
 
 // A sign. `text` is only a short name (kept as data); the page shows the long description.
 function placeSign(x, y, text, dest) {
-  return { x, y, text, desc: SIGN_TEXT[dest] };
+  return { x, y, text, desc: SIGN_TEXT[dest], marker: true };
 }
 
 // Exits: walking onto one of the tiles leaves the town onto the path to `dest`.
@@ -847,11 +852,7 @@ const TOWNS = {
       { dest: "tilted_towers", tiles: [[19, 5], [19, 6]], spawn: [18, 5] },
       { dest: "retail_row", tiles: [[9, 11], [10, 11]], spawn: [9, 10] },
     ],
-    signs: [
-      placeSign(11, 1, "POLAR PEAK", "polar_peak"),
-      placeSign(17, 4, "TILTED TOWERS", "tilted_towers"),
-      placeSign(8, 9, "RETAIL ROW", "retail_row"),
-    ],
+    signs: [],
     objects: [
       { x: 3, y: 4, kind: "decide", key: "looted_house", solid: true, marker: true },
       { x: 13, y: 9, kind: "npc", style: "ronaldo", name: "Ronaldo", pose: "idle", ball: 0, solid: true, marker: true,
@@ -874,11 +875,7 @@ const TOWNS = {
       { dest: "pleasant_park", tiles: [[9, 11], [10, 11]], spawn: [9, 10] },
     ],
     doors: [{ tiles: [[9, 3], [10, 3]], to: "supermarket", hint: "Walk in to enter the supermarket" }],
-    signs: [
-      placeSign(2, 4, "TILTED TOWERS", "tilted_towers"),
-      placeSign(17, 4, "POLAR PEAK", "polar_peak"),
-      placeSign(8, 10, "PLEASANT PARK", "pleasant_park"),
-    ],
+    signs: [],
     objects: [
       { x: 6, y: 4, kind: "collect", key: "impulse_grenades", solid: true, sprite: "prop_vending_machine", marker: true },
       { x: 14, y: 8, kind: "decide", key: "danced", solid: false, marker: true },
@@ -903,11 +900,7 @@ const TOWNS = {
       { dest: "retail_row", tiles: [[19, 5], [19, 6]], spawn: [18, 5] },
       { dest: "polar_peak", tiles: [[9, 0], [10, 0]], spawn: [9, 1] },
     ],
-    signs: [
-      placeSign(2, 7, "PLEASANT PARK", "pleasant_park"),
-      placeSign(17, 7, "RETAIL ROW", "retail_row"),
-      placeSign(11, 3, "POLAR PEAK", "polar_peak"),
-    ],
+    signs: [],
     objects: [
       { x: 5, y: 8, kind: "collect", key: "chug_jug", solid: true, sprite: "prop_supply_drop", marker: true },
       { x: 15, y: 8, kind: "decide", key: "followed_tracks", solid: false, marker: true, decal: "tracks" },
@@ -922,9 +915,6 @@ const TOWNS = {
     ],
     storm: { tiles: [[8, 0], [9, 0], [10, 0], [11, 0]] },
     signs: [
-      placeSign(2, 1, "PLEASANT PARK", "pleasant_park"),
-      placeSign(17, 7, "RETAIL ROW", "retail_row"),
-      placeSign(8, 9, "TILTED TOWERS", "tilted_towers"),
       placeSign(12, 7, "THE STORM", "storm"),
     ],
     objects: [
@@ -1203,7 +1193,9 @@ const BIOMES = {
 };
 // The danger waits at the far end of the path (2 x 2 tiles across the whole width), so every side trail
 // can be visited first, whichever way you walk. [x, y] is the top left tile of the danger.
-const HAZARD_AT = { toRight: [16, 8], toLeft: [2, 3] };
+const HAZARD_AT = { toRight: [16, 8], toLeft: [2, 3], iceToLeft: [11, 8] };
+// The icy dangers must lie on the icy half of the path (the Polar Peak side), whichever way you walk.
+const ICY_HAZARDS = ["H7", "H9", "H10"];
 
 // The three places a side trail can lead to (positions are the same on every path).
 const SPOTS = {
@@ -1275,8 +1267,8 @@ const SIDE_STORIES = {
 
 // What lies on the path for each hazard (kept subtle: footprints, shell casings, scorch marks...).
 const HAZARD_DECALS = {
-  H1: "trap", H2: "prints", H3: "scorch", H4: "glint", H5: "smoke", H6: "wires",
-  H7: "cracks", H8: "casings", H9: "cracks", H10: "snowpile", H11: "prints", H12: "scorch",
+  H1: "trap", H2: "tent", H3: "launcher", H4: "sniper", H5: "smoke", H6: "wires",
+  H7: "cracks", H8: "casings", H9: "cracks", H10: "snowpile", H11: "bush", H12: "scorch",
 };
 
 function drawHazardDecal(c, kind, sprites, at) {
@@ -1294,6 +1286,45 @@ function drawHazardDecal(c, kind, sprites, at) {
     if (kind === "smoke") { ellipse(c, X + 12, Y + 8, 7, 4, "rgba(220,220,230,0.5)"); ellipse(c, X + 20, Y + 12, 5, 3, "rgba(200,200,215,0.45)"); }
     if (kind === "glint") { px(c, X + 22, Y + 6, 1, 5, "#fff"); px(c, X + 20, Y + 8, 5, 1, "#fff"); }
     if (kind === "casings") for (let i = 0; i < 4; i++) px(c, X + 4 + rnd(i + 3, 24), Y + 4 + rnd(i + 5, 24), 3, 1, "#c0392b");
+  } else if (kind === "launcher") {
+    // a burnt crater with a rocket launcher and its last rocket lying in it
+    ellipse(c, X + 16, Y + 17, 14, 10, "rgba(25,20,20,0.5)");
+    ellipse(c, X + 16, Y + 17, 9, 6, "rgba(10,8,8,0.6)");
+    [[2, 8, 5, 1], [26, 9, 4, 1], [5, 27, 6, 1], [23, 26, 5, 1], [14, 2, 1, 4], [18, 29, 1, 3], [27, 20, 3, 1]].forEach(([x, y, w, h]) => px(c, X + x, Y + y, w, h, "rgba(25,20,20,0.5)"));
+    [[8, 12], [22, 13], [16, 8], [11, 22]].forEach(([x, y], i) => { px(c, X + x, Y + y, 2, 2, i % 2 ? "#ffb347" : "#e0463c"); });
+    ellipse(c, X + 21, Y + 7, 4, 2, "rgba(200,200,215,0.4)"); ellipse(c, X + 24, Y + 4, 3, 2, "rgba(200,200,215,0.3)");   // a last wisp of smoke
+    ellipse(c, X + 16, Y + 26, 14, 2, "rgba(0,0,0,0.35)");                       // the launcher: a long tube
+    px(c, X + 4, Y + 17, 22, 6, "#4a5060"); px(c, X + 4, Y + 17, 22, 1, "#8a92a6"); px(c, X + 4, Y + 22, 22, 1, "#2a2d38");
+    px(c, X + 10, Y + 17, 3, 6, "#4f7a3a"); px(c, X + 18, Y + 17, 2, 6, "#4f7a3a");
+    px(c, X + 26, Y + 16, 3, 8, "#2a2d38"); px(c, X + 26, Y + 16, 3, 1, "#6a7080");      // the muzzle
+    px(c, X + 1, Y + 16, 4, 8, "#2a2d38"); px(c, X + 2, Y + 17, 2, 6, "#14141c");        // the back
+    px(c, X + 14, Y + 14, 5, 3, "#2a2d38"); px(c, X + 15, Y + 13, 3, 1, "#8fd4ff");      // the sight
+    px(c, X + 12, Y + 23, 3, 4, "#2a2d38"); px(c, X + 16, Y + 23, 1, 3, "#2a2d38");      // the grip
+    px(c, X + 4, Y + 26, 12, 3, "#aab0bd"); px(c, X + 4, Y + 26, 12, 1, "#d6dae3");      // the rocket
+    px(c, X + 16, Y + 26, 3, 3, "#e0463c"); px(c, X + 2, Y + 25, 2, 5, "#7a8296");       // nose cone and fins
+  } else if (kind === "sniper") {
+    // a player in a ghillie suit lying flat, aiming a sniper rifle
+    ellipse(c, X + 14, Y + 24, 14, 3, "rgba(0,0,0,0.3)");
+    const leaf = ["#3f5a2a", "#5a7a35", "#2a3f1e", "#7a6a3a", "#4a6a2a", "#6b8a3a"];
+    const suit = (cx, cy, rx, ry, n, seed) => {
+      ellipse(c, X + cx, Y + cy, rx, ry, "#34502a");
+      for (let i = 0; i < n; i++) {
+        const a = hash(i, seed, 11) % 628 / 100, d = Math.sqrt((hash(i, seed, 12) % 100) / 100);
+        px(c, Math.round(X + cx + Math.cos(a) * rx * d), Math.round(Y + cy + Math.sin(a) * ry * d), 2, 1, leaf[hash(i, seed, 13) % leaf.length]);
+      }
+    };
+    suit(8, 20, 9, 5, 60, 1);                                                      // the body
+    suit(17, 18, 5, 5, 30, 2);                                                     // the hooded head
+    for (let i = 0; i < 12; i++) {                                                 // loose strands of grass and fabric
+      const sx = X + 1 + hash(i, 5, 21) % 20, sy = Y + 14 + hash(i, 6, 21) % 4;
+      px(c, sx, sy, 1, 3, leaf[i % leaf.length]);
+    }
+    px(c, X + 18, Y + 18, 3, 2, "#e8b88a"); px(c, X + 19, Y + 18, 1, 1, "#14141c");     // a bit of face and one eye
+    px(c, X + 17, Y + 20, 14, 2, "#2a2d38"); px(c, X + 17, Y + 20, 14, 1, "#8a92a6");  // the rifle
+    px(c, X + 15, Y + 21, 4, 3, "#5a3a1c");                                          // the stock
+    px(c, X + 31, Y + 19, 1, 4, "#14141c");
+    px(c, X + 21, Y + 16, 7, 4, "#1a1c26"); px(c, X + 27, Y + 17, 1, 2, "#8fd4ff");     // the scope
+    px(c, X + 24, Y + 22, 1, 4, "#2a2d38"); px(c, X + 28, Y + 22, 1, 4, "#2a2d38");     // the little legs of the rifle
   } else if (kind === "scorch") {
     ellipse(c, X + 16, Y + 16, 13, 9, "rgba(25,20,20,0.5)");
     ellipse(c, X + 16, Y + 16, 8, 5, "rgba(10,8,8,0.55)");
@@ -1309,6 +1340,69 @@ function drawHazardDecal(c, kind, sprites, at) {
   } else if (kind === "snowpile") {
     ellipse(c, X + 12, Y + 22, 12, 6, "#ffffff"); ellipse(c, X + 22, Y + 12, 8, 5, "#f4f9ff");
     px(c, X + 6, Y + 16, 4, 3, "#8a8f9c"); px(c, X + 24, Y + 20, 3, 3, "#6f7790");
+  }
+}
+
+// A head that looks out of its hiding place. look: -1 left, 0 straight, 1 right.
+function peeker(c, x, y, look, helmet, shine) {
+  px(c, x, y, 8, 8, "#e8b88a");
+  px(c, x - 1, y - 1, 10, 5, helmet); px(c, x - 1, y - 1, 10, 1, shine);
+  px(c, x + 1, y + 3, 6, 1, "#1b1030");
+  [1, 5].forEach((ex) => {
+    px(c, x + ex, y + 4, 2, 2, "#ffffff");
+    px(c, x + ex + (look > 0 ? 1 : 0), y + 4 + (look === 0 ? 1 : 0), 1, 1, "#1b1030");
+  });
+  px(c, x + 3, y + 7, 2, 1, "#a05a3a");
+}
+
+// The hazards that move: the camper in the tent, the player in the bush and the glint of the sniper's scope.
+function drawHazardLive(c, kind, at, t) {
+  const X = at[0] * T, Y = at[1] * T, sec = t / 1000;
+  if (kind === "tent") {
+    const ph = sec % 5.2;
+    const out = ph < 2.2 ? 0 : ph < 2.6 ? (ph - 2.2) / 0.4 : ph < 3.6 ? 1 : ph < 4.0 ? 1 - (ph - 3.6) / 0.4 : 0;
+    ellipse(c, X + 16, Y + 28, 15, 3, "rgba(0,0,0,0.3)");
+    for (let y = 4; y <= 27; y++) {                                         // the canvas
+      const half = Math.round((y - 4) * 15 / 23);
+      px(c, X + 16 - half, Y + y, half, 1, "#4a9a44"); px(c, X + 16, Y + y, half + 1, 1, "#2f6e30");
+      if (y % 6 === 0 && half > 3) { px(c, X + 16 - half + 2, Y + y, 3, 1, "#3a8038"); px(c, X + 16 + half - 4, Y + y, 3, 1, "#245a28"); }   // patches
+    }
+    px(c, X + 16, Y + 4, 1, 23, "#1f4a22");                                 // the ridge
+    px(c, X + 2, Y + 26, 28, 2, "#6b4a2a");                                 // the ground sheet
+    for (let y = 12; y <= 27; y++) {                                        // the open entrance
+      const half = Math.round((y - 12) * 7 / 15);
+      px(c, X + 16 - half, Y + y, half * 2 + 1, 1, "#16120e");
+      px(c, X + 15 - half, Y + y, 1, 1, "#8ed07a"); px(c, X + 17 + half, Y + y, 1, 1, "#8ed07a");   // the folded-back flaps
+    }
+    if (out > 0) {                                                          // a head pops out, looks around, ducks back in
+      c.save(); c.beginPath(); c.rect(X, Y, 32, 27); c.clip();
+      const look = out < 1 ? 0 : Math.floor((ph - 2.6) / 0.5) % 2 ? 1 : -1;
+      peeker(c, X + 12 + look, Y + 27 - Math.round(10 * smoothStep(out)), look, "#e0463c", "#ff8a7a");
+      c.restore();
+    }
+    px(c, X + 16, Y, 1, 5, "#8a5a2c");                                      // pole with a waving pennant
+    px(c, X + 17, Y, 4 + (Math.floor(sec * 4) % 2), 3, "#e0463c");
+    [[1, 27], [29, 27]].forEach(([x, y]) => px(c, X + x, Y + y, 2, 2, "#6b4a2a"));                  // pegs and ropes
+  } else if (kind === "bush") {
+    const ph = sec % 6.4;
+    const up = ph < 1.6 ? 0 : ph < 2.1 ? (ph - 1.6) / 0.5 : ph < 4.4 ? 1 : ph < 4.9 ? 1 - (ph - 4.4) / 0.5 : 0;
+    ellipse(c, X + 16, Y + 29, 14, 3, "rgba(0,0,0,0.3)");
+    if (up > 0) {                                                           // the head, behind the leaves
+      const look = up < 1 ? 0 : ph < 2.9 ? -1 : ph < 3.7 ? 1 : ph < 4.1 ? -1 : 0;
+      peeker(c, X + 12 + look, Y + 17 - Math.round(16 * smoothStep(up)), look, "#3a6fe0", "#8fb4ff");
+    }
+    ellipse(c, X + 16, Y + 21, 15, 9, "#1f5a2c");                           // the bush
+    ellipse(c, X + 9, Y + 19, 9, 8, "#2b7a38"); ellipse(c, X + 23, Y + 19, 9, 8, "#2b7a38");
+    ellipse(c, X + 16, Y + 16, 10, 8, "#35893f");
+    ellipse(c, X + 12, Y + 14, 4, 3, "#56b64f"); ellipse(c, X + 21, Y + 17, 3, 2, "#56b64f"); ellipse(c, X + 7, Y + 21, 3, 2, "#56b64f");
+    for (let i = 0; i < 26; i++) px(c, X + 4 + hash(i, 3, 5) % 25, Y + 11 + hash(i, 4, 5) % 15, 2, 1, i % 3 ? "#7fd35a" : "#17491f");   // leaves
+    px(c, X + 19, Y + 21, 2, 2, "#e0463c"); px(c, X + 8, Y + 24, 2, 2, "#e0463c");                                        // a few berries
+  } else if (kind === "sniper") {
+    const ph = sec % 2.6;
+    if (ph < 0.3) {                                                         // the scope catches the light
+      const x = X + 27, y = Y + 17;
+      px(c, x - 3, y, 7, 1, "#ffffff"); px(c, x, y - 3, 1, 7, "#ffffff"); px(c, x - 1, y - 1, 3, 3, "#fff7b0");
+    }
   }
 }
 
@@ -1343,7 +1437,7 @@ function campfire(c, x, y) {
 function pathDefinition(a, b, hazardId) {
   const left = TOWN_ORDER.indexOf(a) < TOWN_ORDER.indexOf(b) ? a : b;
   const right = left === a ? b : a;
-  const hazardAt = a === left ? HAZARD_AT.toRight : HAZARD_AT.toLeft;      // a = where the player starts
+  const hazardAt = a === left ? HAZARD_AT.toRight : ICY_HAZARDS.includes(hazardId) ? HAZARD_AT.iceToLeft : HAZARD_AT.toLeft;   // a = where the player starts
   const L = BIOMES[left], R = BIOMES[right];
   const g = makeGrid("g");
   const biomeAt = (x) => (x < 10 ? L : R);
@@ -1380,7 +1474,6 @@ function pathDefinition(a, b, hazardId) {
       g[y][x] = walls[hash(x, y, 7) % walls.length];
     }
   }
-  g[2][1] = "s"; g[7][18] = "s";
   const fires = stories.filter((st) => SPOTS[st.spot].fire).map((st) => SPOTS[st.spot].fire);
   return {
     left, right,
@@ -1407,9 +1500,6 @@ function pathDefinition(a, b, hazardId) {
         else if (biome.path === "k" && r % 5 === 0) ellipse(c, x * T + 4 + r % 8, y * T + 12, 3, 1, "#ffffff");     // snow dusting
       }
     },
-    signs: [
-      { x: 1, y: 2, text: TOWN_NAMES[left], desc: SIGN_TEXT[left] },
-      { x: 18, y: 7, text: TOWN_NAMES[right], desc: SIGN_TEXT[right] },
-    ],
+    signs: [],
   };
 }

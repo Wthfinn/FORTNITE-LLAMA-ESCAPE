@@ -21,7 +21,7 @@ SCENES = {
     "pleasant_park": {
         "name": "Pleasant Park",
         "text": (
-            "Lush lawns, friendly neighbours and a football pitch. Everything is lovely, which is exactly what a squad hiding in a gazebo wants you to think."
+            "Lush lawns, friendly neighbours and a football pitch where three local legends are mid-match. One of them has already fallen over, on purpose. Everything is so pleasant it feels illegal, and nobody here has heard of the storm. They intend to keep it that way."
         ),
     },
     "retail_row": {
@@ -72,7 +72,7 @@ ITEMS = {
     },
 }
 
-# affects_ending decisions must all be answered "yes" for the good ending.
+# The decisions are flavour: none of them changes the ending any more (affects_ending is always False).
 DECISIONS = {
     "thanked_driver": {
         "scene": "bus",
@@ -90,7 +90,7 @@ DECISIONS = {
         "no": "Skip the house",
         "yes_text": "Inside you find hay on the floor and llama hoofprints leading out the back.",
         "no_text": "You walk past the house. Whatever was inside stays a mystery.",
-        "affects_ending": True,
+        "affects_ending": False,
     },
     "followed_tracks": {
         "scene": "tilted_towers",
@@ -99,7 +99,7 @@ DECISIONS = {
         "no": "Chase the enemy squad",
         "yes_text": "The tracks are small, round and unmistakably llama. They head toward the mountains.",
         "no_text": "You run toward the shooting. By the time you look back, the tracks are gone.",
-        "affects_ending": True,
+        "affects_ending": False,
     },
     "danced": {
         "scene": "retail_row",
@@ -117,14 +117,14 @@ DECISIONS = {
         "no": "Stay at the base",
         "yes_text": "From the top you spot your Llama, trotting straight into the storm!",
         "no_text": "You stay low. The view from here shows nothing but snow.",
-        "affects_ending": True,
+        "affects_ending": False,
     },
 }
 
 # Every path between two places has exactly two hazards. They happen in order, the
 # first two times the player walks that path (in either direction). Once both are
 # survived the path is free. "path" lists the two places the path joins.
-# The deadly option is marked deadly=True. Option order on screen is fixed.
+# The deadly option is marked deadly=True. Its place in the list (1st, 2nd or 3rd) varies from hazard to hazard.
 HAZARDS = {
     "H1": {
         "path": ("pleasant_park", "tilted_towers"), "order": 1,
@@ -139,9 +139,9 @@ HAZARDS = {
         "path": ("pleasant_park", "tilted_towers"), "order": 2,
         "situation": "An enemy team smokes you from the clock tower.",
         "options": [
+            {"text": "Push them alone", "deadly": True},
             {"text": "Retreat behind a building", "deadly": False, "survive": "You duck behind a building as the smoke grenades pop. Phew! Next time, maybe don't walk past a clock tower like it's a polite invitation."},
             {"text": "Build a ramp for cover", "deadly": False, "survive": "A quick ramp, and the bullets thud into wood. You peek out and wave. The clock tower squad is not amused."},
-            {"text": "Push them alone", "deadly": True},
         ],
     },
     "H2": {
@@ -149,8 +149,8 @@ HAZARDS = {
         "situation": "A squad is camping right ahead.",
         "options": [
             {"text": "Sneak along the fence", "deadly": False, "survive": "You hug the fence and slip by. The squad is too busy arguing about who forgot the snacks."},
-            {"text": "Wait until they leave", "deadly": False, "survive": "You wait. And wait. Eventually the squad gets bored and wanders off to annoy someone else. Patience: undefeated."},
             {"text": "Walk past them in the open", "deadly": True},
+            {"text": "Wait until they leave", "deadly": False, "survive": "You wait. And wait. Eventually the squad gets bored and wanders off to annoy someone else. Patience: undefeated."},
         ],
     },
     "H4": {
@@ -167,17 +167,17 @@ HAZARDS = {
         "situation": "The icy path runs along a cliff edge.",
         "options": [
             {"text": "Take it slow", "deadly": False, "survive": "Slowly, steadily, one icy step at a time. Phew, that was a close call. Next time you should pack your climbing equipment."},
-            {"text": "Take the longer path inland", "deadly": False, "survive": "You take the long way inland. Boring, but your eyebrows are still attached. Ice: 0, you: 1."},
             {"text": "Sprint along the edge", "deadly": True},
+            {"text": "Take the longer path inland", "deadly": False, "survive": "You take the long way inland. Boring, but your eyebrows are still attached. Ice: 0, you: 1."},
         ],
     },
     "H8": {
         "path": ("pleasant_park", "polar_peak"), "order": 2,
         "situation": "A pump shotgun player waits behind the wall.",
         "options": [
+            {"text": "Peek around the corner", "deadly": True},
             {"text": "Go around the other side", "deadly": False, "survive": "You sneak around the other side. The shotgun guy is still aiming at the corner. He has a long, silent evening ahead of him."},
             {"text": "Throw something to distract them", "deadly": False, "survive": "You throw a snowball. He blasts it. Another one. He blasts that too. By the time you pass, he has run out of shells and dignity."},
-            {"text": "Peek around the corner", "deadly": True},
         ],
     },
     "H3": {
@@ -194,17 +194,17 @@ HAZARDS = {
         "situation": "A doorway looks suspiciously clean.",
         "options": [
             {"text": "Enter through the window", "deadly": False, "survive": "You enter through the window like a professional burglar. The doorway trap is left waiting, offended."},
-            {"text": "Shoot the doorway first", "deadly": False, "survive": "You shoot the doorway first. BOOM. Turns out it was wired to explode. Nice trick, past you."},
             {"text": "Walk right in", "deadly": True},
+            {"text": "Shoot the doorway first", "deadly": False, "survive": "You shoot the doorway first. BOOM. Turns out it was wired to explode. Nice trick, past you."},
         ],
     },
     "H9": {
         "path": ("tilted_towers", "polar_peak"), "order": 1,
         "situation": "The frozen slope is covered in thin, cracking ice.",
         "options": [
+            {"text": "Slide across on your stomach", "deadly": True},
             {"text": "Test each step with your pickaxe", "deadly": False, "survive": "Tap, tap, crack... tap. You test every step with your pickaxe and cross the ice in the least heroic way possible. It works."},
             {"text": "Build a bridge over it", "deadly": False, "survive": "You build a bridge over the thin ice. Engineers everywhere nod in approval. The ice sulks."},
-            {"text": "Slide across on your stomach", "deadly": True},
         ],
     },
     "H10": {
@@ -221,17 +221,17 @@ HAZARDS = {
         "situation": "Another squad bursts out of the bushes!",
         "options": [
             {"text": "Dive into the nearest bush", "deadly": False, "survive": "You dive into a bush. The squad runs right past you. You stay there a bit longer, just to make sure it wasn't a trap. It was a nice bush anyway."},
-            {"text": "Throw a smoke and slip away", "deadly": False, "survive": "Smoke! You vanish like a magician with a fear of confrontation. The squad is left coughing and confused."},
             {"text": "Challenge them to a pickaxe duel", "deadly": True},
+            {"text": "Throw a smoke and slip away", "deadly": False, "survive": "Smoke! You vanish like a magician with a fear of confrontation. The squad is left coughing and confused."},
         ],
     },
     "H12": {
         "path": ("retail_row", "polar_peak"), "order": 2,
         "situation": "A rocket whistles past from a rooftop.",
         "options": [
+            {"text": "Wave at the rocketeer", "deadly": True},
             {"text": "Hide behind a parked car", "deadly": False, "survive": "You hide behind a parked car. The rocket turns the neighbouring car into confetti. You decide never to buy that car brand."},
             {"text": "Build a quick wall", "deadly": False, "survive": "A quick wall saves the day. The rocket explodes against it. Wow, you can build under pressure. Who knew?"},
-            {"text": "Wave at the rocketeer", "deadly": True},
         ],
     },
 }
@@ -248,8 +248,9 @@ ENDINGS = {
     "B": {
         "title": "Lost in the Storm",
         "text": (
-            "You find your Llama, but without a way out you cannot escape the "
-            "storm in time. Both of you are eliminated."
+            "The storm drains the last of your health before you reach your "
+            "Llama. Somewhere out there it keeps walking into the purple fog, "
+            "and you are lost in the storm."
         ),
     },
     "C": {

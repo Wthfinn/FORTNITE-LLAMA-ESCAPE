@@ -38,11 +38,18 @@ update it when the team changes the design.
   `templates/` and `static/` (page), `tests/` (unittest). See README.md.
 - **Hazards belong to the 6 paths between the places: 2 per path, 12 in total.** Only the Chug Jug opens
   the storm; the Impulse Grenades are needed for the good ending. In the storm the player loses 4 health
-  per second (25 seconds) and is eliminated at 0 (server action `storm_timeout`); the Chug Jug can be drunk
+  per second (25 seconds), also while flying across the valley. Landing next to the llama with health left (needs the
+  Impulse Grenades) = Ending A, the win. Health at 0 = Ending B "Lost in the Storm" (server action `storm_timeout`).
+  Ending C is only for deadly path hazards. The 3 earlier decisions no longer change the ending. The health bar
+  pulses 3 times on entering the storm. The Chug Jug can be drunk
   once in the storm (server action `use_chug_jug`, +50 health in the page). Details: `concept.md` sections 15 and 16.
 - **Run the tests:** `python -m unittest discover -s tests -t .` (the `.venv` also works)
 - Flavour decisions D1 and D4 stay. Entering the Storm is one-way. Blocked actions are hidden until
-  available. Hazard options keep the same order on screen.
+  available. The deadly hazard option moves around (1st, 2nd or 3rd, fixed per hazard).
+  Only one sign is left on the island: the storm warning in Polar Peak. Places are described by a pop-up on first entry.
+  The summit of Polar Peak can only be reached from the bottom of the mountain path.
+- **Pause menu (Esc / P):** Resume, New game, Save & exit. Save & exit stores the exact position in a
+  second browser key (`SNAPSHOT_KEY` in `static/game.js`) and returns to the title screen. One save slot.
 - Extra features beyond the BRD are not included unless the team project page lists them as required.
 - Team of two (agreed with the professor).
 

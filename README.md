@@ -46,8 +46,10 @@ Everything is played with the keyboard:
    edge of the valley to jump across. At 20 health the game offers you the Chug Jug (+50 health). If you
    run out of health you are eliminated.
 
-Your progress is saved in **your own browser** after every action. Close the page and come back later:
-press **Load game**. Clearing your browser data deletes the save.
+Your progress is saved in **your own browser** after every action. Press **Esc** (or the **Pause** button)
+to pause. The pause menu has **Resume**, **New game** and **Save & exit**. Save & exit also remembers exactly
+where you stand and takes you back to the title screen, where **Load game** brings you back to that spot.
+Clearing your browser data deletes the save.
 
 ## Pictures and sound
 

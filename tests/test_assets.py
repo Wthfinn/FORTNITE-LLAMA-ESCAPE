@@ -7,6 +7,7 @@ from pathlib import Path
 
 import game
 import story
+from tests import resolve_hazard
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 SOUNDS = ["music.mp3", "hazard_alert.mp3", "shotgun.mp3", "elimination.mp3", "victory.mp3",
@@ -96,7 +97,7 @@ class MapViewTests(unittest.TestCase):
     def play(self, *actions):
         state = game.new_state()
         for action in actions:
-            state, _ = game.apply_action(state, action)
+            state, _ = game.apply_action(state, resolve_hazard(state, action))
         return state
 
     def test_every_map_node_is_a_scene_with_a_position_inside_the_map(self):

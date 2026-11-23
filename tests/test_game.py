@@ -11,12 +11,13 @@ import unittest
 
 import game
 import story
+from tests import resolve_hazard
 
 
 def play(state, *action_ids):
     """Apply several actions in a row and return the final state."""
     for action_id in action_ids:
-        state, _ = game.apply_action(state, action_id)
+        state, _ = game.apply_action(state, resolve_hazard(state, action_id))
     return state
 
 
@@ -123,13 +124,13 @@ class ChugJugTests(unittest.TestCase):
 
     def test_drinking_it_does_not_change_the_ending(self):
         state = play(polar_peak_with_chug_jug(), "storm", "use_chug_jug", "storm_timeout")
-        self.assertEqual(state["ending"], "C")
+        self.assertEqual(state["ending"], "B")
 
 
 class StormTimeoutTests(unittest.TestCase):
-    def test_storm_timeout_ends_the_game_with_ending_c(self):
+    def test_storm_timeout_ends_the_game_with_ending_b(self):
         state = play(polar_peak_with_chug_jug(), "storm", "storm_timeout")
-        self.assertEqual((state["status"], state["ending"]), ("ended", "C"))
+        self.assertEqual((state["status"], state["ending"]), ("ended", "B"))
 
     def test_storm_timeout_is_rejected_outside_the_storm(self):
         for state in (game.new_state(), at_polar_peak(), polar_peak_with_chug_jug()):
@@ -218,8 +219,10 @@ class HazardTests(unittest.TestCase):
     def test_a_safe_option_answers_with_the_text_that_fits_it(self):
         for option in (0, 1):
             state = play(game.new_state(), "land:retail_row", "travel:polar_peak")
-            _, message = game.apply_action(state, f"hazard:{option}")
-            self.assertEqual(message, story.HAZARDS["H11"]["options"][option]["survive"])
+            action = resolve_hazard(state, f"hazard:{option}")
+            _, message = game.apply_action(state, action)
+            real = int(action.split(":")[1])
+            self.assertEqual(message, story.HAZARDS["H11"]["options"][real]["survive"])
 
     def test_deadly_option_ends_the_game_with_ending_c(self):
         state = play(game.new_state(), "land:retail_row", "travel:polar_peak", "hazard:2")
@@ -317,14 +320,14 @@ class EndingTests(unittest.TestCase):
         state = self.good_run(["impulse_grenades"])
         self.assertNotIn("storm", ids(state))
 
-    def test_bad_ending_when_one_right_decision_is_missing(self):
+    def test_the_earlier_decisions_do_not_change_the_good_ending(self):
         state = play(game.new_state(), "land:pleasant_park", "decide:looted_house:no")
         state = play(state, "travel:tilted_towers", "hazard:0", "decide:followed_tracks:yes",
                      "collect:chug_jug")
         state = play(state, "travel:retail_row", "hazard:0", "collect:impulse_grenades")
         state = play(state, "travel:polar_peak", "hazard:0", "decide:took_high_ground:yes",
                      "storm", "search")
-        self.assertEqual(state["ending"], "B")
+        self.assertEqual(state["ending"], "A")
 
     def test_flavour_decisions_do_not_change_the_ending(self):
         state = play(game.new_state(), "decide:thanked_driver:no", "land:retail_row",
@@ -457,3 +460,12 @@ class ViewTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HazardOrderTests(unittest.TestCase):
+    def test_the_deadly_option_is_not_always_in_the_same_place(self):
+        places = {
+            [o["deadly"] for o in hazard["options"]].index(True)
+            for hazard in story.HAZARDS.values()
+        }
+        self.assertEqual(places, {0, 1, 2})

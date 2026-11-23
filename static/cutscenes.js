@@ -677,3 +677,160 @@ function drawItemFly(c, p, from, to, sprite) {
   }
   if (tuck > 0.3) px(c, bx + 1, by - 3 - Math.round(tuck * 4), 2, 2, "#fff6c0");
 }
+
+// ---------- the summit: the fish climbs up, looks through binoculars and spots the llama ----------
+
+const SUMMIT_SECONDS = 12.0;
+const SUMMIT_WALK = 1.4;      // the fish has reached the top
+const SUMMIT_END = 3.0;       // the climb scene is over, the binocular view opens
+const SUMMIT_LENS = 3.7;      // the binocular view is fully open
+const SUMMIT_PAN_FROM = 4.0, SUMMIT_PAN_TO = 8.2;
+const LLAMA_EDGE = 520;       // where the Storm begins, in panorama pixels
+const LENS_R = 84, LENS_Y = 96, LENS_X = [96, 224];
+
+function binoculars(c, x, y) {                  // (x, y) = top-left of the pair, 14 x 11 pixels
+  px(c, x - 1, y - 1, 7, 11, "#14141c"); px(c, x + 8, y - 1, 7, 11, "#14141c");
+  px(c, x, y, 5, 9, "#3a3d4d"); px(c, x + 9, y, 5, 9, "#3a3d4d");
+  px(c, x + 5, y + 3, 4, 3, "#14141c");
+  px(c, x + 1, y + 1, 2, 3, "#8fd4ff"); px(c, x + 10, y + 1, 2, 3, "#8fd4ff");     // the lenses glint
+}
+
+function forestTree(c, x, y, h) {               // a small pine for the far forests
+  px(c, x, y - 2, 1, 3, "#4a2f18");
+  for (let r = 0; r < h; r++) {
+    const half = 1 + Math.floor(r * 0.45);
+    px(c, x - half, y - 2 - h + r + 1, half * 2 + 1, 1, r % 2 ? "#2c6e44" : "#245a38");
+  }
+}
+
+// The climb: the fish walks up the last slope, stands on the summit and raises the binoculars.
+function summitScene(c, t) {
+  band(c, 0, SH, ["#9fc3e6", "#b4d2ee", "#c9ddf2", "#dde9f6", "#efe6e8", "#f6dfd0"]);
+  cloud(c, ((40 + t * 5) % 380) - 30, 28, 1); cloud(c, ((210 + t * 4) % 380) - 30, 50, 0.8);
+  mountain(c, 50, 132, 56, 64, "#9aa6c0", "#ffffff"); mountain(c, 120, 140, 40, 50, "#a9b4cc", "#ffffff");
+  ellipse(c, 292, 134, 96, 38, "#3a1f78"); ellipse(c, 282, 126, 74, 28, "#5a2fa0"); ellipse(c, 304, 112, 40, 16, "#7a45c8");   // the Storm, far away
+  mountain(c, 240, 150, 46, 56, "#8d95b0", "#ffffff");
+  for (let y = 112; y < SH; y++) {              // the snowy summit
+    const half = y < 118 ? 14 + (y - 112) : 22 + Math.round((y - 118) * 1.7);
+    px(c, 160 - half, y, half * 2, 1, y < 132 ? "#ffffff" : "#e6eef8");
+    px(c, 160 + Math.round(half * 0.2), y, Math.ceil(half * 0.8), 1, y < 132 ? "#dfe9f6" : "#c3d3e6");
+  }
+  for (let k = 0; k < 9; k++) px(c, 96 + hash(k, 3, 9) % 130, 140 + hash(k, 4, 9) % 46, 6 + (k % 3) * 3, 2, k % 2 ? "#aebfd6" : "#9fb0c8");
+  const walk = clamp01(t / SUMMIT_WALK);
+  const x = lerp(26, 150, smooth(walk));
+  const y = x >= 138 ? 120 : 118 + (138 - x) / 1.7;
+  const moving = t < SUMMIT_WALK;
+  fishAt(c, x, y, { dir: "right", step: moving ? Math.floor(t * 8) % 2 : 0, pose: "walk", t });
+  if (t > 0.8 && t < 2.2) outlined(c, "THE SUMMIT!", 160, 30, "#ffd23f", 16);
+  if (t > 1.8) {                                // the binoculars come out and go up to the eyes
+    const up = smooth(clamp01((t - 2.3) / 0.6));
+    binoculars(c, Math.round(x + lerp(9, 7, up)), Math.round(y - lerp(24, 37, up)));
+  }
+  for (let i = 0; i < 14; i++) px(c, (i * 47 + t * 60) % SW, (i * 31 + t * 18) % SH, 1, 1, "rgba(255,255,255,0.8)");   // blowing snow
+}
+
+// The whole view is one wide picture (760 pixels) that the camera slides across. Far things move slower.
+function summitPanorama(c, camX, t, sprites, llamaX) {
+  const X = (x, f) => Math.round(x - camX * f);
+  band(c, 0, 128, ["#b6cbe8", "#c6d6ec", "#d8e2f0", "#ecebf0", "#f4e6dc"]);
+  [[60, 30], [230, 52], [420, 24]].forEach(([x, y], i) => cloud(c, X(x + t * 2, 0.3), y, 1 + (i % 2) * 0.3));
+  [[30, 50], [130, 72], [250, 56], [360, 82], [470, 60], [590, 68]].forEach(([x, h]) => mountain(c, X(x, 0.55), 130, h, h + 14, "#a9b4cc", "#ffffff"));
+  [[10, 44], [110, 58], [220, 40], [330, 60], [440, 46], [560, 54]].forEach(([x, h]) => mountain(c, X(x, 0.8), 134, h, h + 18, "#7e8aa6", "#f4f9ff"));
+  for (let k = 0; k < 44; k++) forestTree(c, X(6 + k * 15, 0.8), 136 + (k % 3) * 2, 5 + hash(k, 2, 4) % 5);   // the forest at the foot of the mountains
+  band(c, 134, SH, ["#6aa356", "#5f9a4c", "#558c43", "#4c7e3b", "#447034"]);                                     // the plain
+  for (let k = 0; k < 26; k++) {                                                                                  // clumps of forest on the plain
+    const gx = 20 + hash(k, 1, 3) % 700, gy = 142 + hash(k, 2, 3) % 44;
+    ellipse(c, X(gx, 1), gy, 14 + k % 3 * 3, 5, "#2f6a3b"); ellipse(c, X(gx, 1) - 2, gy - 2, 9, 3, "#3f8a4a");
+  }
+  for (let x = 330; x < 520; x += 14) px(c, X(x, 1), 141 + (x % 3), 7, 1, "#cdb27a");                            // the llama's tracks
+  // the Storm: a purple wall at the end of the plain, with a jagged edge
+  for (let y = 0; y < SH; y++) {
+    const edge = LLAMA_EDGE + Math.round(Math.sin(y * 0.35 + t * 0.8) * 5 + (hash(y, 1, 8) % 9) - 4);
+    const dark = y < 60 ? ["#1d0f40", "#2a1458"] : y < 130 ? ["#2a1458", "#3a1f78"] : ["#241048", "#33196a"];
+    px(c, X(edge - 22, 1), y, 22, 1, "rgba(90,47,160,0.28)");
+    px(c, X(edge, 1), y, SW + 200, 1, dark[(y + Math.floor(t * 3)) % 4 < 2 ? 0 : 1]);
+  }
+  for (let k = 0; k < 18; k++) {                                                                                  // swirling clouds in the Storm
+    const cx = LLAMA_EDGE + 24 + hash(k, 5, 6) % 230, cy = 14 + hash(k, 6, 6) % 118;
+    ellipse(c, X(cx + Math.sin(t * 0.7 + k) * 6, 1), Math.round(cy + Math.cos(t * 0.6 + k) * 3), 16 + k % 3 * 6, 6 + k % 2 * 3, k % 2 ? "#5a2fa0" : "#7a45c8");
+  }
+  if (Math.floor(t * 3.3) % 4 === 0 && (t * 3.3) % 1 < 0.14) {                                                    // lightning
+    const lx = X(LLAMA_EDGE + 90, 1);
+    [[0, 8], [-6, 30], [4, 52], [-5, 76], [3, 100]].forEach(([dx, y], i, a) => px(c, lx + dx, y, 2, (a[i + 1] ? a[i + 1][1] : 124) - y, "#fff7b0"));
+    px(c, 0, 0, SW, SH, "rgba(200,170,255,0.12)");
+  }
+  // the llama, small and far away, walking into the Storm
+  const into = clamp01((llamaX - LLAMA_EDGE) / 24);
+  const lx = X(llamaX, 1), ly = 142 + Math.round(Math.sin(t * 9));
+  ellipse(c, lx, 143, 8, 2, "rgba(0,0,0,0.3)");
+  const llama = sprites && sprites.llama;
+  c.save();
+  c.globalAlpha = 1 - into * 0.9;
+  if (llama && llama.complete && llama.naturalWidth) {
+    c.imageSmoothingEnabled = false;
+    c.drawImage(llama, lx - 8, ly - 28, 16, 28);
+  } else {
+    px(c, lx - 5, ly - 14, 10, 8, "#ffb3e6"); px(c, lx + 2, ly - 22, 4, 9, "#ffb3e6"); px(c, lx - 4, ly - 6, 2, 6, "#e07fc0"); px(c, lx + 2, ly - 6, 2, 6, "#e07fc0");
+  }
+  c.restore();
+  if (into > 0) { c.globalAlpha = into * 0.6; px(c, lx - 9, ly - 30, 18, 31, "#3a1f78"); c.globalAlpha = 1; }
+}
+
+// The round view of a pair of binoculars: black outside the two lenses, with a little scale and crosshair.
+function binocularMask(c, r) {
+  for (let y = 0; y < SH; y++) {
+    const dy = y - LENS_Y, span = [];
+    if (Math.abs(dy) <= r) {
+      const half = Math.floor(Math.sqrt(r * r - dy * dy));
+      LENS_X.forEach((cx) => span.push([cx - half, cx + half]));
+    }
+    if (!span.length) { px(c, 0, y, SW, 1, "#050508"); continue; }
+    const [a, b] = span;
+    const joined = a[1] >= b[0];
+    const spans = joined ? [[a[0], b[1]]] : span;
+    let cursor = 0;
+    spans.forEach(([x0, x1]) => {
+      if (x0 > cursor) px(c, cursor, y, x0 - cursor, 1, "#050508");
+      const rim = Math.abs(dy) > r - 4 ? x1 - x0 + 1 : 3;
+      px(c, x0, y, rim, 1, "#0e0e14"); px(c, x1 - rim + 1, y, rim, 1, "#0e0e14");
+      px(c, x0 + rim, y, 3, 1, "rgba(0,0,0,0.35)"); px(c, x1 - rim - 2, y, 3, 1, "rgba(0,0,0,0.35)");
+      cursor = x1 + 1;
+    });
+    if (cursor < SW) px(c, cursor, y, SW - cursor, 1, "#050508");
+  }
+}
+
+function binocularMarks(c) {
+  const mark = (x, y, w, h) => { px(c, x + 1, y + 1, w, h, "rgba(0,0,0,0.6)"); px(c, x, y, w, h, "#f4f4d8"); };
+  [[92, 58, 1, 1], [92, 134, 1, -1], [227, 58, -1, 1], [227, 134, -1, -1]].forEach(([x, y, dx, dy]) => {
+    mark(dx > 0 ? x : x - 8, y, 9, 1); mark(x, dy > 0 ? y : y - 8, 1, 9);
+  });
+  mark(156, 96, 3, 1); mark(162, 96, 3, 1); mark(160, 92, 1, 3); mark(160, 98, 1, 3);      // the crosshair
+  [30, 290].forEach((x) => { for (let k = 0; k < 11; k++) mark(x + (x < 100 ? 0 : -4), 60 + k * 7, k % 5 === 0 ? 6 : 3, 1); });
+}
+
+function drawSummitBinoculars(c, t, sprites) {
+  if (t < SUMMIT_END) { summitScene(c, t); return; }
+  const open = smooth(clamp01((t - SUMMIT_END) / (SUMMIT_LENS - SUMMIT_END)));
+  const pan = smooth(clamp01((t - SUMMIT_PAN_FROM) / (SUMMIT_PAN_TO - SUMMIT_PAN_FROM)));
+  const llamaX = 440 + (t - SUMMIT_LENS) * 12;
+  const camX = lerp(0, 334 + 0, pan);
+  c.fillStyle = "#050508"; c.fillRect(0, 0, SW, SH);
+  c.save();
+  c.translate(Math.round(Math.sin(t * 3.1)), Math.round(Math.sin(t * 2.3)));                   // the hands are never quite still
+  summitPanorama(c, camX, t, sprites, llamaX);
+  c.restore();
+  binocularMask(c, Math.max(1, Math.round(LENS_R * open)));
+  if (open < 1) return;
+  binocularMarks(c);
+  if (t > 7.4) {                                                                               // the llama is spotted
+    const lx = Math.round(llamaX - camX), blink = Math.floor(t * 4) % 2 === 0;
+    const col = blink ? "#ff4f5e" : "#ffd23f";
+    [[-13, -34], [7, -34], [-13, 1], [7, 1]].forEach(([dx, dy]) => {
+      px(c, lx + dx, 142 + dy, 6, 1, col); px(c, lx + dx + (dx < 0 ? 0 : 5), 142 + dy, 1, 6, col);
+      px(c, lx + dx, 142 + dy + 5, 6, 1, col); px(c, lx + dx + (dx < 0 ? 0 : 5), 142 + dy, 1, 6, col);
+    });
+    outlined(c, "THE LLAMA!", 160, 62, "#ffd23f", 14);
+  }
+  if (t > 9.6) outlined(c, "It's walking into the storm!", 160, 140, "#ffffff", 11);
+}

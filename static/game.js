@@ -6,6 +6,7 @@
 
 const SAVE_KEY = "fortnite-llama-escape-save";
 const EXTRAS_KEY = "fortnite-llama-escape-extras";   // small extras that are not part of the rules
+const SNAPSHOT_KEY = "fortnite-llama-escape-snapshot";   // where the player stood when they chose Save & exit
 const MUTE_KEY = "fortnite-llama-escape-muted";
 const IMG = document.body.dataset.img;
 const AUDIO = document.body.dataset.audio;
@@ -45,7 +46,10 @@ let town = null;           // the definition from world.js
 let grid = null;
 let path = null;           // while walking between two towns: { left, right, from, to, def }
 let busy = false;          // waiting for the server, or fading between screens
-let modal = null;          // "menu" | "hazard" | "ending" | "confirm" | null
+let modal = null;          // "menu" | "hazard" | "ending" | "confirm" | "pause" | null
+let paused = false;        // the game is frozen behind the pause menu
+let pausedAt = 0;          // when the pause started (real time)
+let pausedSounds = [];     // the sounds that were playing when the game was paused
 let modalKeys = [];        // functions for the number keys 1, 2, 3 ...
 let dialogQueue = [];      // messages waiting to be read: { text, onClose }
 let dialogCurrent = null;
@@ -53,6 +57,7 @@ let dialogOpen = false;
 let banner = { text: "", time: 0 };
 let caption = "";          // text box that shows without blocking (during the dance)
 const visited = new Set(); // places whose description was already shown
+const readSigns = new Set(); // signs that were read (their "!" goes away)
 const held = [];           // arrow keys currently held, last one wins
 const player = { tx: 0, ty: 0, fx: 0, fy: 0, last: [0, 0], dir: "down", moving: false, prog: 0, step: 0 };
 const bus = { phase: "intro", t0: 0, sel: 0, jumping: false, jt: 0 };   // jt: seconds since the jump started
@@ -110,6 +115,7 @@ function clearSave() {
   try {
     localStorage.removeItem(SAVE_KEY);
     localStorage.removeItem(EXTRAS_KEY);
+    localStorage.removeItem(SNAPSHOT_KEY);
   } catch (e) { /* nothing to clear */ }
 }
 function loadExtras() {
@@ -261,7 +267,7 @@ function updateHud() {
       list.appendChild(li);
     });
   }
-  let hint = "Arrows / WASD walk · SPACE talk, use, next · 1 2 3 choose · click the red X to close · M sound";
+  let hint = "Arrows / WASD walk · SPACE talk, use, next · 1 2 3 choose · ESC pause · click the red X to close · M sound";
   if (scene === "bus") {
     hint = bus.phase === "select"
       ? "Arrow keys choose where to drop · SPACE jump · T talk to the bus driver · M sound"
@@ -433,10 +439,7 @@ function showEnding(v) {
   v.review.decisions.forEach((d) => review.appendChild(el("li", "", d.question + " → " + d.answer)));
   review.appendChild(el("li", "", "Dangers survived: " + v.review.hazards_survived));
   panel.appendChild(review);
-  addOption(panel, "New game", () => {
-    closeModal();
-    startNewGame();
-  });
+  addOption(panel, "New game", startOver);
 }
 
 function askStartOver() {
@@ -455,6 +458,103 @@ function askStartOver() {
     closeModal();
     if (!state) showStart();
   });
+}
+
+// ---------- pause, save and exit ----------
+
+function canPause() {
+  return !$("stage").hidden && Boolean(state) && !modal && !busy && !paused;
+}
+
+function pauseGame() {
+  if (!canPause()) return;
+  paused = true;
+  pausedAt = performance.now();
+  pausedSounds = Object.values(sounds).filter((s) => !s.paused);
+  pausedSounds.forEach((s) => s.pause());
+  showPauseMenu();
+}
+
+function showPauseMenu() {
+  const panel = openModal("pause");
+  panel.appendChild(el("h2", "", "Paused"));
+  addOption(panel, "Resume", resumePlay);
+  addOption(panel, "New game", askNewGameFromPause, "secondary");
+  addOption(panel, "Save & exit", saveAndExit, "secondary");
+}
+
+function resumePlay() {
+  closeModal();
+  paused = false;
+  bus.t0 += performance.now() - pausedAt;          // the bus screen's 30 second wait does not run while paused
+  if (!muted) pausedSounds.forEach((s) => { const p = s.play(); if (p) p.catch(() => {}); });
+  pausedSounds = [];
+}
+
+function askNewGameFromPause() {
+  const panel = openModal("confirm");
+  panel.appendChild(el("p", "question", "Starting a new game erases your saved progress. Are you sure?"));
+  addOption(panel, "Yes, start over", () => {
+    startOver();
+  });
+  addOption(panel, "Cancel", showPauseMenu);
+}
+
+// Remember everything the rules do not know about: where the player stands and which texts were shown.
+function saveSnapshot() {
+  const onPath = scene === "path" && path;
+  writeJson(SNAPSHOT_KEY, {
+    stamp: JSON.stringify(state),            // only used while the saved game has not changed since
+    scene: scene,
+    pathFrom: onPath ? path.from : null,
+    pathTo: onPath ? path.to : null,
+    tx: player.tx, ty: player.ty, dir: player.dir,
+    chugAsked: chugAsked,
+    visited: Array.from(visited),
+  });
+}
+
+function applySnapshot() {
+  const snap = readJson(SNAPSHOT_KEY);
+  if (!snap || snap.stamp !== JSON.stringify(state)) return;
+  (snap.visited || []).forEach((id) => visited.add(id));
+  chugAsked = Boolean(snap.chugAsked);
+  if (snap.scene === "path" && snap.pathFrom === view.scene_id && view.ahead && snap.pathTo in view.ahead) {
+    enterPath(snap.pathFrom, snap.pathTo);
+  }
+  if (snap.scene !== scene || scene === "bus") return;
+  const inside = Number.isInteger(snap.tx) && Number.isInteger(snap.ty) &&
+    snap.tx >= 0 && snap.tx < COLS && snap.ty >= 0 && snap.ty < ROWS;
+  if (inside && !solidAt(snap.tx, snap.ty)) placePlayer(snap.tx, snap.ty, snap.dir);
+}
+
+function saveAndExit() {
+  saveExtras();
+  saveSnapshot();
+  writeSave(state);
+  leaveToTitle("Game saved. Load your game to carry on, or start a new one.");
+}
+
+// Back to the title picture: everything that is running stops.
+function leaveToTitle(note) {
+  Object.values(sounds).forEach((s) => s.pause());
+  pausedSounds = [];
+  paused = false;
+  closeModal();
+  resetDialogs();
+  held.length = 0;
+  cutscene.active = false; dance.active = false; caption = "";
+  finale.phase = null; itemFly.active = false; landing.active = false; drop.active = false;
+  bus.jumping = false;
+  $("stage").hidden = true;
+  showStart(note);
+}
+
+// "New game" inside the game: the old save is erased and the player is back at the very beginning.
+function startOver() {
+  clearSave();
+  state = null; view = null; scene = null;
+  leaveToTitle("");
 }
 
 // ---------- scenes ----------
@@ -508,7 +608,16 @@ function enterScene(id, fromId, opts) {
     saveExtras();
   }
   updateHud();
+  if (id === "storm" && !opts.resume) pulseHealthBar();          // "watch this bar!" when the player enters the storm
   if (!landing.active) afterEnter(id);
+}
+
+// The health bar pulses three times so the player knows it is what to keep an eye on.
+function pulseHealthBar() {
+  const box = $("health-box");
+  box.classList.remove("pulse");
+  void box.offsetWidth;                // restart the animation
+  box.classList.add("pulse");
 }
 
 function afterEnter(id) {
@@ -617,8 +726,8 @@ function afterAction(actionId, before, fromScene) {
   if (view.status === "ended") {
     resetDialogs();
     closeModal();
-    if (actionId === "search") {                                  // the jump over the valley
-      playFinale(before);
+    if (actionId === "search") {                                  // landed next to the Llama in time
+      finaleHug();
     } else if (actionId.startsWith("hazard:") && before && before.hazard && DEATHS[before.hazard.id]) {
       startCutscene(DEATHS[before.hazard.id], () => { soundsFor(before, view); showEnding(view); });
     } else {
@@ -641,6 +750,11 @@ function afterAction(actionId, before, fromScene) {
   }
   if (actionId === "decide:danced:yes") {
     startDance();
+    return;
+  }
+  if (actionId === "decide:took_high_ground:yes") {               // up the mountain, binoculars, the llama in the distance
+    startCutscene({ dur: SUMMIT_SECONDS, caption: "", draw: (c, t) => drawSummitBinoculars(c, t, sprites) },
+      () => { startMusic(); if (view.message) showDialog(view.message); });
     return;
   }
   if (view.message) showDialog(view.message);
@@ -688,11 +802,12 @@ function endItemFly() {
 const HUG_GOOD = "You land right next to your Llama and give it the biggest hug of your life. It makes a noise a llama really should not be able to make. \"Time to go home,\" you whisper, and you pull out another Impulse Grenade.";
 const HUG_BAD = "You land next to your Llama and hug it. Then it hits you: you have no idea where the safe zone is. The last Impulse Grenade would only throw you deeper into the purple fog.";
 
-// The jump over the valley, the hug, and (with the right choices) the jump out of the storm.
-function playFinale(before) {
+// The jump over the valley. The storm keeps draining health while the player is in the air. Only when the
+// player lands next to the Llama with health left does the page tell the server ("search"): that is the win.
+function startJump() {
   finale.phase = "jump";
   finale.t = 0;
-  finale.before = before;
+  finale.before = view;
   finale.from = { x: player.tx, y: player.ty };
   finale.to = { x: 15, y: 5 };
   held.length = 0;
@@ -766,6 +881,7 @@ function interact() {
   const target = nearbyTarget();
   if (!target) return;
   if (target.kind === "sign") {
+    readSigns.add(target.sign);
     showDialog(target.sign.desc || target.sign.text);           // only the long description
   } else {
     useObject(target.obj);
@@ -791,8 +907,13 @@ function useEdge() {
     showDialog("Your Llama is right there, across the valley! But the bridge has crumbled and the gap is huge. If only you had something that could launch you across...", null, true);
     return;
   }
-  const choices = view.choices.filter((c) => c.id === "search");
-  if (choices.length) openChoiceMenu("Throw an Impulse Grenade at your feet and launch yourself across the valley?", [{ id: "search", label: "Throw the Impulse Grenade (jump!)" }]);
+  const panel = openModal("menu");
+  addCloseX(panel);
+  panel.appendChild(el("p", "question", "Throw an Impulse Grenade at your feet and launch yourself across the valley? The storm keeps hurting you in the air!"));
+  addOption(panel, "Throw the Impulse Grenade (jump!)", () => {
+    closeModal();
+    startJump();
+  });
 }
 
 function useObject(o) {
@@ -895,6 +1016,7 @@ async function startNewGame() {
   health = 100;
   saveExtras();
   visited.clear();
+  readSigns.clear();
   talkCount.clear();
   dance.active = false; caption = "";
   $("start").hidden = true;
@@ -932,6 +1054,7 @@ async function resume() {
   view = result.data.view;
   loadExtras();
   visited.clear();
+  readSigns.clear();
   talkCount.clear();
   dance.active = false; caption = "";
   $("start").hidden = true;
@@ -940,6 +1063,7 @@ async function resume() {
   resetDialogs();
   visited.add(view.scene_id);
   enterScene(view.scene_id, null, { resume: true });
+  applySnapshot();
   if (view.scene_id === "bus") bus.phase = "select";
   banner.time = view.scene_id === "bus" ? 0 : 2000;
   if (view.status === "ended") showEnding(view);
@@ -1131,7 +1255,17 @@ function drawActors(t) {
     ground.push(o);
     actors.push({ y: o.y, draw: () => drawObjectSprite(o, done, t) });
   });
-  if (town.football) actors.push({ y: 9.9, draw: () => drawBall(t) });
+  const openSigns = (town.signs || []).filter((sg) => sg.marker && !readSigns.has(sg));
+  openSigns.forEach((sg) => {                                      // the storm sign glows like the other things to use
+    const pulse = 0.28 + 0.2 * Math.sin(t / 280);
+    pixelEllipse(b, sg.x * T + 8, sg.y * T + 13, 13, 6, "rgba(255,210,63," + pulse.toFixed(2) + ")");
+    pixelEllipse(b, sg.x * T + 8, sg.y * T + 13, 8, 4, "rgba(255,240,150," + (pulse + 0.12).toFixed(2) + ")");
+  });
+  if (scene === "path" && path && path.def.decal) {                // the moving hazards: tent, bush, sniper glint
+    const at = path.def.decalAt;
+    actors.push({ y: at[1] + 1, draw: () => drawHazardLive(b, path.def.decal, at, t) });
+  }
+    if (town.football) actors.push({ y: 9.9, draw: () => drawBall(t) });
   const px_ = player.fx + (player.tx - player.fx) * player.prog;
   const py_ = player.fy + (player.ty - player.fy) * player.prog;
   actors.push({ y: py_ + 0.4, draw: () => drawThePlayer(px_, py_, t) });
@@ -1145,6 +1279,14 @@ function drawActors(t) {
     const bounce = Math.round(Math.abs(Math.sin(t / 240)) * 4);
     let mx = ox + 5, my = topY - 14 - bounce;
     if (my < 2) { mx = ox + 13; my = oy - 8 + bounce; }              // at the top edge of the screen: beside the head
+    px(b, mx - 1, my - 1, 8, 13, "#1b1030");
+    px(b, mx, my, 6, 11, "#ffd23f");
+    px(b, mx + 2, my + 1, 2, 5, "#1b1030");
+    px(b, mx + 2, my + 8, 2, 2, "#1b1030");
+  });
+  openSigns.forEach((sg) => {
+    const bounce = Math.round(Math.abs(Math.sin(t / 240)) * 4);
+    const mx = sg.x * T + 5, my = sg.y * T - 14 - bounce;
     px(b, mx - 1, my - 1, 8, 13, "#1b1030");
     px(b, mx, my, 6, 11, "#ffd23f");
     px(b, mx + 2, my + 1, 2, 5, "#1b1030");
@@ -1338,7 +1480,7 @@ function drawLabels(t) {
 // while reading the note or talking (those are choices that cost health).
 function canDrain() {
   const waiting = dialogOpen && !(dialogCurrent && dialogCurrent.live);
-  return scene === "storm" && !busy && !waiting && !cutscene.active && !finale.phase && !itemFly.active &&
+  return scene === "storm" && !busy && !waiting && !cutscene.active && (!finale.phase || finale.phase === "jump") && !itemFly.active &&
     (!modal || modal === "note") && Boolean(view) && view.status === "in_progress";
 }
 
@@ -1353,13 +1495,13 @@ function loop(now) {
     titleCtx.drawImage(titleBase, 0, 0, titleCanvas.width, titleCanvas.height);
   }
   if (!$("stage").hidden && scene) {
-    update(dt, now, real);
+    if (!paused) update(dt, now, real);
     if (cutscene.active) cutscene.def.draw(b, cutscene.t);
     else if (scene === "bus") drawBusScene(now); else drawWorld(now);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(base, 0, 0, canvas.width, canvas.height);
     drawLabels(now);
-    if (banner.time > 0) banner.time -= dt;
+    if (banner.time > 0 && !paused) banner.time -= dt;
   }
   requestAnimationFrame(loop);
 }
@@ -1381,7 +1523,7 @@ function update(dt, now, real) {
   }
   if (finale.phase === "jump") {
     finale.t += real / 1000;
-    if (finale.t >= 2.3) finaleHug();
+    if (finale.t >= 2.3 && health > 0 && !busy) perform("search");       // landed with health left: the Llama is yours
   }
   // the bus screen waits for 30 seconds or a click, then moves on
   if (scene === "bus" && dialogOpen && (bus.phase === "intro" || bus.phase === "ready") && now - bus.t0 > AUTO_ADVANCE_MS) {
@@ -1415,8 +1557,9 @@ function update(dt, now, real) {
     if (now - lastExtrasSave > 500) { saveExtras(); lastExtrasSave = now; }
     if (health <= 0) {
       saveExtras();
+      finale.phase = null;                           // out of health in the air: no landing
       perform("storm_timeout");
-    } else if (health <= CHUG_AT && !chugAsked && state.inventory.includes("chug_jug") && modal !== "chug") {
+    } else if (health <= CHUG_AT && !finale.phase && !chugAsked && state.inventory.includes("chug_jug") && modal !== "chug") {
       showChugPrompt();                              // low health: offer the Chug Jug
     }
   }
@@ -1450,6 +1593,13 @@ window.addEventListener("keydown", (e) => {
   const code = e.code;
   if (code === "KeyM") {
     setMuted(!muted);
+    return;
+  }
+  if (code === "Escape" || code === "KeyP") {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (paused && modal === "pause") resumePlay();
+    else pauseGame();
     return;
   }
   if ($("stage").hidden && !modal) return;   // the start screen uses its buttons
@@ -1500,7 +1650,8 @@ window.addEventListener("blur", () => { held.length = 0; });
 
 $("resume-btn").addEventListener("click", resume);
 $("new-btn").addEventListener("click", askStartOver);
-$("restart-btn").addEventListener("click", (e) => { e.currentTarget.blur(); askStartOver(); });
+$("health-box").addEventListener("animationend", (e) => e.currentTarget.classList.remove("pulse"));
+$("pause-btn").addEventListener("click", (e) => { e.currentTarget.blur(); pauseGame(); });
 $("mute-btn").addEventListener("click", (e) => { e.currentTarget.blur(); setMuted(!muted); });
 $("dialog").addEventListener("click", nextDialog);
 canvas.addEventListener("click", () => {
