@@ -79,6 +79,6 @@ update it when the team changes the design.
 
 - Final scene, hazard and ending texts: the current texts in `story.py` are placeholders. One partner
   rewrites the scene texts, the other the hazard and ending texts. Keep the IDs and the structure.
-- Fill in the deployed URL in README.md once it exists (names and student numbers are in).
+- Nothing for the README: names, student numbers and the deployed URL (https://fortnite-llama-escape.onrender.com) are in.
 
 When something changes, update this file and `concept.md`.

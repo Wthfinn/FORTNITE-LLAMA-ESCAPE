@@ -6,7 +6,7 @@ storm gets it. There are three endings.
 
 Built for the Nova SBE "Introduction to Programming" team project (Plot Twist).
 
-**Deployed app:** TODO: paste the public URL here after deploying (see "Deploying" below)
+**Deployed app:** https://fortnite-llama-escape.onrender.com (free hosting: after a quiet period the first load can take about a minute)
 
 ## Team
 
