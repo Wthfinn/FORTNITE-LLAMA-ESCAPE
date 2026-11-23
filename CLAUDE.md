@@ -43,6 +43,8 @@ update it when the team changes the design.
   Ending C is only for deadly path hazards. The 3 earlier decisions no longer change the ending. The health bar
   pulses 3 times on entering the storm. The Chug Jug can be drunk
   once in the storm (server action `use_chug_jug`, +50 health in the page). Details: `concept.md` sections 15 and 16.
+- **Elimination cards:** `static/eliminations.js` draws one pixel picture per way of losing (12 hazard deaths + the
+  Storm, Ending B) with an ELIMINATED banner and a kill-feed line. The page remembers which one in `extras.death`.
 - **Run the tests:** `python -m unittest discover -s tests -t .` (the `.venv` also works)
 - Flavour decisions D1 and D4 stay. Entering the Storm is one-way. Blocked actions are hidden until
   available. The deadly hazard option moves around (1st, 2nd or 3rd, fixed per hazard).

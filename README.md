@@ -114,6 +114,7 @@ invalid requests, security headers).
 | `app.py` | Small Flask web server. Receives the saved state and an action, asks `game.py`, sends back the result. |
 | `templates/index.html`, `static/style.css` | The page around the game screen. |
 | `static/world.js` | The walking world: tiles, the five town maps, signposts, exits, the player sprite. |
+| `static/eliminations.js` | The 13 elimination pictures (one per way of losing) with the ELIMINATED banner and kill-feed line. |
 | `static/game.js` | Keyboard, drawing, menus and danger cards. Talks to the server and saves the state in the browser (localStorage). |
 | `tools/` | Optional helpers that make the pixel pictures. |
 | `tests/` | Automated tests (rules, web server, and that every picture and sound exists). |

@@ -60,6 +60,15 @@ class AnimationAndWorldDataTests(unittest.TestCase):
                 self.assertTrue(3.0 <= float(match.group(1)) <= 6.0, "films are 3-6 seconds long")
                 self.assertGreater(len(match.group(2)), 15)
 
+    def test_every_way_of_losing_has_its_own_elimination_card(self):
+        cards = (STATIC / "eliminations.js").read_text()
+        for card_id in list(story.HAZARDS) + ["B"]:
+            with self.subTest(card=card_id):
+                self.assertRegex(cards, r"(?m)^  %s: \{ draw\(c, t\) \{" % card_id)
+                feed = re.search(r"^  %s: \"(.+?)\"," % card_id, cards, re.M)
+                self.assertIsNotNone(feed, "no kill-feed line for " + card_id)
+                self.assertGreater(len(feed.group(1)), 8)
+
     def test_every_path_has_two_or_three_side_stories(self):
         world = (STATIC / "world.js").read_text()
         block = world[world.index("const SIDE_STORIES"):world.index("// What lies on the path for each hazard")]

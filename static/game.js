@@ -71,7 +71,7 @@ const talkCount = new Map();   // which line each character says next
 let chugAsked = false;         // the Chug Jug offer is shown once per drop below 20 health
 let hudPop = null;             // the item that just landed in the backpack (its icon pops)
 let health = 100;              // only goes down inside the storm
-let extras = { tiltedSeen: false, health: 100 };
+let extras = { tiltedSeen: false, health: 100, death: null };   // death: which elimination card to show
 let lastExtrasSave = 0;
 
 const DROP_TOP = 24, DROP_ROW = 86;     // where the four location pictures sit on the drop screen
@@ -123,6 +123,7 @@ function loadExtras() {
   extras = {
     tiltedSeen: Boolean(saved && saved.tiltedSeen),
     health: saved && typeof saved.health === "number" ? Math.max(0, Math.min(100, saved.health)) : 100,
+    death: saved && typeof saved.death === "string" ? saved.death : null,
   };
 }
 function saveExtras() {
@@ -426,8 +427,9 @@ function showHazard(v) {
 function showEnding(v) {
   const panel = openModal("ending ending-" + v.ending.code.toLowerCase());
   panel.appendChild(el("p", "code", "ENDING " + v.ending.code));
-  panel.appendChild(el("h2", "", v.ending.title));
-  panel.appendChild(pxImage(v.ending.image));
+  const card = v.ending.code !== "A" && ELIMINATIONS[extras.death];       // the elimination card has its own big banner
+  if (!card || v.ending.code !== "C") panel.appendChild(el("h2", "", v.ending.title));
+  panel.appendChild(card ? eliminationCard(extras.death) : pxImage(v.ending.image));
   if (v.ending.code === "A") {
     const victory = el("img", "pixel victory");
     victory.src = IMG + "px/victory_banner.png";
@@ -440,6 +442,22 @@ function showEnding(v) {
   review.appendChild(el("li", "", "Dangers survived: " + v.review.hazards_survived));
   panel.appendChild(review);
   addOption(panel, "New game", startOver);
+}
+
+// The elimination picture of the way the player lost: drawn in code and animated while the card is open.
+function eliminationCard(id) {
+  const card = el("canvas", "pixel");
+  card.width = SW; card.height = SH;
+  card.setAttribute("aria-label", "Elimination screen: " + (KILL_FEED[id] || ""));
+  const cx = card.getContext("2d");
+  const t0 = performance.now();
+  const tick = (now) => {
+    if (!card.isConnected) return;
+    drawElimination(cx, id, (now - t0) / 1000, sprites);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return card;
 }
 
 function askStartOver() {
@@ -726,6 +744,9 @@ function afterAction(actionId, before, fromScene) {
   if (view.status === "ended") {
     resetDialogs();
     closeModal();
+    if (actionId.startsWith("hazard:") && before && before.hazard) extras.death = before.hazard.id;
+    else if (actionId === "storm_timeout") extras.death = "B";
+    saveExtras();
     if (actionId === "search") {                                  // landed next to the Llama in time
       finaleHug();
     } else if (actionId.startsWith("hazard:") && before && before.hazard && DEATHS[before.hazard.id]) {
@@ -1012,7 +1033,7 @@ async function startNewGame() {
   state = result.data.state;
   view = result.data.view;
   writeSave(state);
-  extras = { tiltedSeen: false, health: 100 };
+  extras = { tiltedSeen: false, health: 100, death: null };
   health = 100;
   saveExtras();
   visited.clear();
