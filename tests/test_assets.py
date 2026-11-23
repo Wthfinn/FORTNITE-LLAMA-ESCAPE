@@ -60,6 +60,12 @@ class AnimationAndWorldDataTests(unittest.TestCase):
                 self.assertTrue(3.0 <= float(match.group(1)) <= 6.0, "films are 3-6 seconds long")
                 self.assertGreater(len(match.group(2)), 15)
 
+    def test_the_button_on_an_ending_card_leads_back_to_the_menu(self):
+        game_js = (STATIC / "game.js").read_text()
+        ending = game_js[game_js.index("function showEnding"):game_js.index("function eliminationCard")]
+        self.assertIn('addOption(panel, "Back to the menu", startOver)', ending)
+        self.assertNotIn('"New game"', ending)    # it only goes to the title screen; New game is a button there
+
     def test_the_danger_alarm_lasts_four_seconds(self):
         game_js = (STATIC / "game.js").read_text()
         self.assertRegex(game_js, r"const ALARM_SECONDS = 4;")
