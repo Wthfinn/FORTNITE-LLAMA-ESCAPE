@@ -61,38 +61,51 @@ def validate_state(state):
             or any(h not in story.HAZARDS for h in used)
             or len(set(used)) != len(used)):
         raise StateError("Invalid hazards.")
-    for hazard_id in used:  # order 2 can only be used after order 1
+    for hazard_id in used:  # the second hazard of a path can only be used after the first
         hazard = story.HAZARDS[hazard_id]
-        if hazard["order"] == 2 and _first_hazard(hazard["destination"]) not in used:
+        if hazard["order"] == 2 and _first_hazard(hazard["path"]) not in used:
             raise StateError("Invalid hazard order.")
 
     pending = state["pending_hazard"]
-    if pending is not None and (pending not in story.HAZARDS or pending in used):
-        raise StateError("Invalid pending hazard.")
-    if pending is not None and pending != next_hazard(state, story.HAZARDS[pending]["destination"]):
-        raise StateError("Invalid pending hazard.")
+    if pending is not None:
+        if pending not in story.HAZARDS or pending in used:
+            raise StateError("Invalid pending hazard.")
+        origin = state["current_scene"]
+        path = story.HAZARDS[pending]["path"]
+        if origin not in path or origin not in story.POIS:
+            raise StateError("Invalid pending hazard.")
+        if pending != next_hazard(state, origin, other_end(path, origin)):
+            raise StateError("Invalid pending hazard.")
 
     if state["status"] == "ended":
         if state["ending"] not in story.ENDINGS or pending is not None:
             raise StateError("Invalid ending.")
     elif state["ending"] is not None:
         raise StateError("Invalid ending.")
-    if pending is not None and state["current_scene"] not in story.POIS:
-        raise StateError("Invalid pending hazard.")
 
 
-def _first_hazard(destination):
-    return next(h for h, v in story.HAZARDS.items()
-                if v["destination"] == destination and v["order"] == 1)
+def other_end(path, place):
+    """The place at the other end of a path."""
+    return path[1] if path[0] == place else path[0]
 
 
-def next_hazard(state, destination):
-    """The first hazard of `destination` that has not been survived yet, or None."""
-    candidates = sorted(
-        (v["order"], h) for h, v in story.HAZARDS.items()
-        if v["destination"] == destination and h not in state["used_hazards"]
+def _path_hazards(a, b):
+    """The hazards of the path between two places, first one first."""
+    return sorted(
+        (v["order"], h) for h, v in story.HAZARDS.items() if set(v["path"]) == {a, b}
     )
-    return candidates[0][1] if candidates else None
+
+
+def _first_hazard(path):
+    return _path_hazards(*path)[0][1]
+
+
+def next_hazard(state, origin, destination):
+    """The first hazard on the path origin-destination not survived yet, or None."""
+    for _, hazard_id in _path_hazards(origin, destination):
+        if hazard_id not in state["used_hazards"]:
+            return hazard_id
+    return None
 
 
 def get_actions(state):
@@ -131,6 +144,8 @@ def get_actions(state):
             actions.append({"id": "storm", "label": "Enter the Storm"})
     elif scene == "storm":
         actions.append({"id": "search", "label": "Search for the Llama"})
+        # sent by the page when the storm has used up all the player's health
+        actions.append({"id": "storm_timeout", "label": "Let the storm take you"})
 
     return actions
 
@@ -173,7 +188,7 @@ def apply_action(state, action_id):
         return new, f"You land at {story.SCENES[rest]['name']}."
 
     if kind == "travel":
-        hazard_id = next_hazard(new, rest)
+        hazard_id = next_hazard(new, new["current_scene"], rest)
         if hazard_id is None:
             new["current_scene"] = rest
             return new, f"You arrive at {story.SCENES[rest]['name']}."
@@ -189,8 +204,9 @@ def apply_action(state, action_id):
             new["ending"] = "C"
             return new, story.ENDINGS["C"]["text"]
         new["used_hazards"].append(hazard_id)
-        new["current_scene"] = hazard["destination"]
-        return new, f"You made it. You arrive at {story.SCENES[hazard['destination']]['name']}."
+        destination = other_end(hazard["path"], new["current_scene"])
+        new["current_scene"] = destination
+        return new, f"You made it. You arrive at {story.SCENES[destination]['name']}."
 
     if kind == "collect":
         new["inventory"].append(rest)
@@ -204,6 +220,11 @@ def apply_action(state, action_id):
     if kind == "storm":
         new["current_scene"] = "storm"
         return new, "You take a deep breath and step into the Storm."
+
+    if action_id == "storm_timeout":
+        new["status"] = "ended"
+        new["ending"] = "C"
+        return new, story.ENDINGS["C"]["text"]
 
     # kind == "search"
     new["status"] = "ended"
@@ -272,9 +293,14 @@ def build_view(state, message=""):
         "choices": choices,
         "map": {
             "nodes": map_nodes,
-            "token_at": story.HAZARDS[pending]["destination"] if pending else scene_id,
+            "token_at": other_end(story.HAZARDS[pending]["path"], scene_id) if pending else scene_id,
         },
         "props": props,
+        # the next hazard on the path to each other place (None = path is free)
+        "ahead": {
+            poi: next_hazard(state, scene_id, poi)
+            for poi in story.POIS if scene_id in story.POIS and poi != scene_id and pending is None
+        },
         "hazard": None,
         "inventory": [
             {"name": story.ITEMS[i]["name"], "icon": story.ITEMS[i]["icon"]}

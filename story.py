@@ -21,30 +21,25 @@ SCENES = {
     "pleasant_park": {
         "name": "Pleasant Park",
         "text": (
-            "Quiet suburban streets and neat gardens. A small house stands "
-            "at the end of the road, its door slightly open."
+            "Lush lawns, friendly neighbours and a football pitch. Everything is lovely, which is exactly what a squad hiding in a gazebo wants you to think."
         ),
     },
     "retail_row": {
         "name": "Retail Row",
         "text": (
-            "Shop fronts, parked cars and a glowing vending machine next to "
-            "the main street."
+            "A shopping paradise where nobody shops. The cars are parked however panic suggested, but the supermarket is open as always."
         ),
     },
     "tilted_towers": {
         "name": "Tilted Towers",
         "text": (
-            "Tall buildings, empty streets and a lonely clock tower. Fresh "
-            "tracks lead away from the plaza, and a supply drop floats down "
-            "in the middle of it."
+            "Tall buildings, a very proud clock tower and the charm of a place everyone drops into and regrets. Look up: something is floating down."
         ),
     },
     "polar_peak": {
         "name": "Polar Peak",
         "text": (
-            "Snow, ice and thin air. From up here you can see far across the "
-            "island, all the way to the purple wall of the storm."
+            "Snow, ice and a mountain that dares you to climb it. Somewhere beyond lies the purple wall of the storm."
         ),
     },
     "storm": {
@@ -111,7 +106,7 @@ DECISIONS = {
         "question": "The street is empty. What do you do?",
         "yes": "Do the default dance",
         "no": "Keep moving",
-        "yes_text": "You bust out the default dance. Nobody sees it, but you feel better.",
+        "yes_text": "You bust out the default dance. Disco fever takes over the street!",
         "no_text": "You keep moving. There is no time for dancing.",
         "affects_ending": False,
     },
@@ -126,47 +121,22 @@ DECISIONS = {
     },
 }
 
-# Each POI has two hazards. Each hazard happens at most once per game.
+# Every path between two places has exactly two hazards. They happen in order, the
+# first two times the player walks that path (in either direction). Once both are
+# survived the path is free. "path" lists the two places the path joins.
 # The deadly option is marked deadly=True. Option order on screen is fixed.
 HAZARDS = {
     "H1": {
-        "destination": "pleasant_park", "order": 1,
-        "situation": "A spike trap is hidden on the garden path!",
+        "path": ("pleasant_park", "tilted_towers"), "order": 1,
+        "situation": "A spike trap is hidden on the path!",
         "options": [
             {"text": "Jump over it", "deadly": False},
-            {"text": "Go around through the hedge", "deadly": False},
+            {"text": "Sneak around the edge", "deadly": False},
             {"text": "Sprint straight through", "deadly": True},
         ],
     },
-    "H2": {
-        "destination": "pleasant_park", "order": 2,
-        "situation": "A squad is camping in the gazebo.",
-        "options": [
-            {"text": "Sneak along the fence", "deadly": False},
-            {"text": "Wait until they leave", "deadly": False},
-            {"text": "Walk past them in the open", "deadly": True},
-        ],
-    },
-    "H3": {
-        "destination": "retail_row", "order": 1,
-        "situation": "A rocket is flying straight at you!",
-        "options": [
-            {"text": "Build a wall", "deadly": False},
-            {"text": "Dive behind a car", "deadly": False},
-            {"text": "Keep looking at the shop sign", "deadly": True},
-        ],
-    },
-    "H4": {
-        "destination": "retail_row", "order": 2,
-        "situation": "Something glints on a rooftop. A sniper!",
-        "options": [
-            {"text": "Zig-zag to cover", "deadly": False},
-            {"text": "Crouch behind the dumpsters", "deadly": False},
-            {"text": "Stand still to check your map", "deadly": True},
-        ],
-    },
     "H5": {
-        "destination": "tilted_towers", "order": 1,
+        "path": ("pleasant_park", "tilted_towers"), "order": 2,
         "situation": "An enemy team smokes you from the clock tower.",
         "options": [
             {"text": "Retreat behind a building", "deadly": False},
@@ -174,17 +144,26 @@ HAZARDS = {
             {"text": "Push them alone", "deadly": True},
         ],
     },
-    "H6": {
-        "destination": "tilted_towers", "order": 2,
-        "situation": "A doorway looks suspiciously clean.",
+    "H2": {
+        "path": ("pleasant_park", "retail_row"), "order": 1,
+        "situation": "A squad is camping right ahead.",
         "options": [
-            {"text": "Enter through the window", "deadly": False},
-            {"text": "Shoot the doorway first", "deadly": False},
-            {"text": "Walk right in", "deadly": True},
+            {"text": "Sneak along the fence", "deadly": False},
+            {"text": "Wait until they leave", "deadly": False},
+            {"text": "Walk past them in the open", "deadly": True},
+        ],
+    },
+    "H4": {
+        "path": ("pleasant_park", "retail_row"), "order": 2,
+        "situation": "Something glints on a rooftop. A sniper!",
+        "options": [
+            {"text": "Zig-zag to cover", "deadly": False},
+            {"text": "Crouch behind the dumpsters", "deadly": False},
+            {"text": "Stand still to check your map", "deadly": True},
         ],
     },
     "H7": {
-        "destination": "polar_peak", "order": 1,
+        "path": ("pleasant_park", "polar_peak"), "order": 1,
         "situation": "The icy path runs along a cliff edge.",
         "options": [
             {"text": "Take it slow", "deadly": False},
@@ -193,12 +172,66 @@ HAZARDS = {
         ],
     },
     "H8": {
-        "destination": "polar_peak", "order": 2,
-        "situation": "A pump shotgun player waits behind the castle wall.",
+        "path": ("pleasant_park", "polar_peak"), "order": 2,
+        "situation": "A pump shotgun player waits behind the wall.",
         "options": [
             {"text": "Go around the other side", "deadly": False},
             {"text": "Throw something to distract them", "deadly": False},
             {"text": "Peek around the corner", "deadly": True},
+        ],
+    },
+    "H3": {
+        "path": ("tilted_towers", "retail_row"), "order": 1,
+        "situation": "A rocket is flying straight at you!",
+        "options": [
+            {"text": "Build a wall", "deadly": False},
+            {"text": "Dive behind a car", "deadly": False},
+            {"text": "Keep looking at the shop sign", "deadly": True},
+        ],
+    },
+    "H6": {
+        "path": ("tilted_towers", "retail_row"), "order": 2,
+        "situation": "A doorway looks suspiciously clean.",
+        "options": [
+            {"text": "Enter through the window", "deadly": False},
+            {"text": "Shoot the doorway first", "deadly": False},
+            {"text": "Walk right in", "deadly": True},
+        ],
+    },
+    "H9": {
+        "path": ("tilted_towers", "polar_peak"), "order": 1,
+        "situation": "The frozen slope is covered in thin, cracking ice.",
+        "options": [
+            {"text": "Test each step with your pickaxe", "deadly": False},
+            {"text": "Build a bridge over it", "deadly": False},
+            {"text": "Slide across on your stomach", "deadly": True},
+        ],
+    },
+    "H10": {
+        "path": ("tilted_towers", "polar_peak"), "order": 2,
+        "situation": "A rumble echoes down the mountain. Avalanche!",
+        "options": [
+            {"text": "Build a ramp and climb above it", "deadly": False},
+            {"text": "Duck into a snow cave", "deadly": False},
+            {"text": "Outrun it in a straight line", "deadly": True},
+        ],
+    },
+    "H11": {
+        "path": ("retail_row", "polar_peak"), "order": 1,
+        "situation": "Another squad bursts out of the bushes!",
+        "options": [
+            {"text": "Dive into the nearest bush", "deadly": False},
+            {"text": "Throw a smoke and slip away", "deadly": False},
+            {"text": "Challenge them to a pickaxe duel", "deadly": True},
+        ],
+    },
+    "H12": {
+        "path": ("retail_row", "polar_peak"), "order": 2,
+        "situation": "A rocket whistles past from a rooftop.",
+        "options": [
+            {"text": "Hide behind a parked car", "deadly": False},
+            {"text": "Build a quick wall", "deadly": False},
+            {"text": "Wave at the rocketeer", "deadly": True},
         ],
     },
 }
@@ -225,8 +258,8 @@ ENDINGS = {
     },
 }
 
-STORM_UNLOCK_ITEMS = ["impulse_grenades", "chug_jug"]
-STORM_LOCKED_TEXT = "You won't last a second in the storm without gear. Find some first."
+STORM_UNLOCK_ITEMS = ["chug_jug"]
+STORM_LOCKED_TEXT = "The storm does damage. If only you had a healing item\u2026"
 GOOD_ENDING_ITEM = "impulse_grenades"
 
 # Where each place sits on the island map (percent of the map picture) and the

@@ -5,6 +5,7 @@
 // This file: input, drawing the world, and talking to the server.
 
 const SAVE_KEY = "fortnite-llama-escape-save";
+const EXTRAS_KEY = "fortnite-llama-escape-extras";   // small extras that are not part of the rules
 const MUTE_KEY = "fortnite-llama-escape-muted";
 const IMG = document.body.dataset.img;
 const AUDIO = document.body.dataset.audio;
@@ -14,6 +15,9 @@ const SCALE = 3;
 const VIEW_W = COLS * T;   // 320
 const VIEW_H = ROWS * T;   // 192
 const STEP_MS = 130;
+const STORM_DAMAGE_PER_SECOND = 5;
+const AUTO_ADVANCE_MS = 30000;   // the bus screen waits this long (or until a click)
+const BUS_READY_TEXT = "It's time to drop! Get ready to loot up, fight other players and bring your llama home.";
 
 const canvas = $("screen");
 const ctx = canvas.getContext("2d");
@@ -29,27 +33,37 @@ const sprites = loadSprites(IMG);
 
 let state = null;          // saved game state (what the server checks)
 let view = null;           // what the server last told us to show
-let scene = null;          // "bus", a town id, or "storm"
+let scene = null;          // "bus", a town id, "path" or "storm"
 let town = null;           // the definition from world.js
-let path = null;           // while walking between two towns: { left, right, from, to, def }
 let grid = null;
-let busy = false;          // waiting for the server
+let path = null;           // while walking between two towns: { left, right, from, to, def }
+let busy = false;          // waiting for the server, or fading between screens
 let modal = null;          // "menu" | "hazard" | "ending" | "confirm" | null
 let modalKeys = [];        // functions for the number keys 1, 2, 3 ...
-let dialogQueue = [];      // messages waiting to be read
+let dialogQueue = [];      // messages waiting to be read: { text, onClose }
+let dialogCurrent = null;
 let dialogOpen = false;
-let banner = { text: "", sub: "", time: 0 };
-const visited = new Set(); // places whose description was already shown (this visit)
+let banner = { text: "", time: 0 };
+let caption = "";          // text box that shows without blocking (during the dance)
+const visited = new Set(); // places whose description was already shown
 const held = [];           // arrow keys currently held, last one wins
 const player = { tx: 0, ty: 0, fx: 0, fy: 0, last: [0, 0], dir: "down", moving: false, prog: 0, step: 0 };
-const bus = { sel: 0, jumping: false, jt: 0 };
+const bus = { phase: "intro", t0: 0, sel: 0, jumping: false, jt: 0 };
+const landing = { active: false, t: 0, dur: 1900 };    // the player floats down on a parachute
+const drop = { active: false, t: 0, dur: 3400 };       // the supply drop floats down (first visit only)
+const dance = { active: false, t: 0, dur: 7000 };
+const talkCount = new Map();   // which line each character says next
+let health = 100;              // only goes down inside the storm
+let extras = { tiltedSeen: false, health: 100 };
+let lastExtrasSave = 0;
 
 const BUS_ZONES = [
-  { id: "pleasant_park", name: "PLEASANT PARK", color: "#62c24d" },
-  { id: "tilted_towers", name: "TILTED TOWERS", color: "#bdb8aa" },
-  { id: "polar_peak", name: "POLAR PEAK", color: "#eef6ff" },
-  { id: "retail_row", name: "RETAIL ROW", color: "#555a6b" },
+  { id: "pleasant_park", name: "PLEASANT PARK" },
+  { id: "tilted_towers", name: "TILTED TOWERS" },
+  { id: "polar_peak", name: "POLAR PEAK" },
+  { id: "retail_row", name: "RETAIL ROW" },
 ];
+const NPC_NAMES = { jonesy: "Footballer", bear: "Footballer", raven: "Goalkeeper", referee: "Referee", cashier: "Cashier" };
 const DIRS = {
   ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down",
   ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
@@ -58,27 +72,44 @@ const DELTA = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 // ---------- saving ----------
 
-function readSave() {
+function readJson(key) {
   try {
-    const text = localStorage.getItem(SAVE_KEY);
+    const text = localStorage.getItem(key);
     return text ? JSON.parse(text) : null;
   } catch (e) {
     return null;
   }
 }
-
-function writeSave(newState) {
+function writeJson(key, value) {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(newState));
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch (e) {
+    return false;
+  }
+}
+const readSave = () => readJson(SAVE_KEY);
+function writeSave(newState) {
+  if (!writeJson(SAVE_KEY, newState)) {
     showDialog("Your browser blocked saving. You can keep playing, but progress will be lost.");
   }
 }
-
 function clearSave() {
   try {
     localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(EXTRAS_KEY);
   } catch (e) { /* nothing to clear */ }
+}
+function loadExtras() {
+  const saved = readJson(EXTRAS_KEY);
+  extras = {
+    tiltedSeen: Boolean(saved && saved.tiltedSeen),
+    health: saved && typeof saved.health === "number" ? Math.max(0, Math.min(100, saved.health)) : 100,
+  };
+}
+function saveExtras() {
+  extras.health = health;
+  writeJson(EXTRAS_KEY, extras);
 }
 
 // ---------- sound ----------
@@ -89,10 +120,13 @@ const sounds = {
   shotgun: new Audio(AUDIO + "shotgun.mp3"),
   elimination: new Audio(AUDIO + "elimination.mp3"),
   victory: new Audio(AUDIO + "victory.mp3"),
+  open: new Audio(AUDIO + "open.mp3"),
+  dance: new Audio(AUDIO + "dance.mp3"),
 };
 sounds.music.loop = true;
 sounds.music.volume = 0.25;
 sounds.music.preload = "none";
+sounds.dance.volume = 0.8;
 let muted = false;
 try {
   muted = localStorage.getItem(MUTE_KEY) === "1";
@@ -110,7 +144,7 @@ function play(name, stopAfter) {
 }
 
 function startMusic() {
-  if (!muted && sounds.music.paused) {
+  if (!muted && sounds.music.paused && !dance.active) {
     const promise = sounds.music.play();
     if (promise) promise.catch(() => {});
   }
@@ -136,6 +170,7 @@ function soundsFor(before, after) {
   if (before.status !== "ended" && after.status === "ended") {
     sounds.music.pause();
     sounds.alert.pause();
+    sounds.dance.pause();
     const code = after.ending.code;
     if (code === "A") {
       play("victory");
@@ -150,8 +185,8 @@ function soundsFor(before, after) {
 
 // ---------- server ----------
 
-async function post(path, body) {
-  const response = await fetch(path, {
+async function post(path_, body) {
+  const response = await fetch(path_, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body || {}),
@@ -173,7 +208,6 @@ function el(tag, className, text) {
 }
 
 function pxImage(file) {
-  // Server names are .jpg; the pixel versions are .png in px/.
   const img = el("img", "pixel");
   img.src = IMG + "px/" + file.replace(/\.jpg$/, ".png");
   img.alt = "";
@@ -190,46 +224,78 @@ function showStart(note) {
   $("new-btn").focus();
 }
 
+function placeName() {
+  if (scene === "path") return "Path to " + TOWN_NAMES[path.to];
+  if (view && view.hazard) return "Danger!";
+  if (town && town.name) return town.name;
+  return view ? view.scene_name : "";
+}
+
 function updateHud() {
   if (!view) return;
-  $("place").textContent = scene === "path" && !view.hazard
-    ? "Path to " + TOWN_NAMES[path.to]
-    : view.hazard ? "Danger!" : view.scene_name;
+  $("place").textContent = placeName();
   const list = $("inventory");
   list.replaceChildren();
   if (!view.inventory.length) list.appendChild(el("li", "empty", "no items"));
   view.inventory.forEach((item) => {
     const li = el("li");
     const icon = el("img", "pixel");
-    icon.src = IMG + "px/" + item.icon.replace("item_", "item_");
+    icon.src = IMG + "px/" + item.icon;
     icon.alt = "";
     li.appendChild(icon);
     li.appendChild(el("span", "", item.name));
     list.appendChild(li);
   });
-  $("hint").textContent = scene === "bus"
-    ? "← → choose where to land · SPACE jump · T talk to the bus driver · M sound"
-    : "Arrows / WASD walk · SPACE talk, use, next · 1 2 3 choose · M sound";
+  let hint = "Arrows / WASD walk · SPACE talk, use, next · 1 2 3 choose · M sound";
+  if (scene === "bus") {
+    hint = bus.phase === "select"
+      ? "Arrow keys choose where to drop · SPACE jump · T talk to the bus driver · M sound"
+      : "SPACE or click to continue · M sound";
+  }
+  $("hint").textContent = hint;
+  const inStorm = scene === "storm";
+  $("health-box").hidden = !inStorm;
+}
+
+function updateHealthBar() {
+  const pct = Math.max(0, Math.min(100, health));
+  $("health-bar").style.width = pct + "%";
+  $("health-bar").className = pct > 50 ? "ok" : pct > 25 ? "low" : "critical";
+  $("health-text").textContent = Math.ceil(pct);
 }
 
 // ---------- dialog box (bottom of the screen) ----------
 
-function showDialog(text) {
-  if (!text) return;
-  dialogQueue.push(text);
+function showDialog(text, onClose) {
+  if (!text) {
+    if (onClose) onClose();
+    return;
+  }
+  dialogQueue.push({ text, onClose });
   if (!dialogOpen) nextDialog();
 }
 
 function nextDialog() {
-  const text = dialogQueue.shift();
-  if (text === undefined) {
+  const done = dialogCurrent;
+  dialogCurrent = null;
+  if (done && done.onClose) done.onClose();     // may add more messages
+  const item = dialogQueue.shift();
+  if (!item) {
     dialogOpen = false;
     $("dialog").hidden = true;
     return;
   }
   dialogOpen = true;
-  $("dialog-text").textContent = text;
+  dialogCurrent = item;
+  $("dialog-text").textContent = item.text;
   $("dialog").hidden = false;
+}
+
+function resetDialogs() {
+  dialogQueue = [];
+  dialogCurrent = null;
+  dialogOpen = false;
+  $("dialog").hidden = true;
 }
 
 // ---------- modal windows (menus, danger cards, ending) ----------
@@ -261,7 +327,7 @@ function addOption(panel, label, fn, className) {
   return button;
 }
 
-function openChoiceMenu(title, choices, onCancelText) {
+function openChoiceMenu(title, choices) {
   const panel = openModal("menu");
   panel.appendChild(el("p", "question", title));
   choices.forEach((choice) => {
@@ -270,8 +336,7 @@ function openChoiceMenu(title, choices, onCancelText) {
       perform(choice.id);
     });
   });
-  const cancel = el("p", "cancel", onCancelText || "ESC: not now");
-  panel.appendChild(cancel);
+  panel.appendChild(el("p", "cancel", "ESC: not now"));
 }
 
 function showHazard(v) {
@@ -293,10 +358,10 @@ function showEnding(v) {
   panel.appendChild(el("h2", "", v.ending.title));
   panel.appendChild(pxImage(v.ending.image));
   if (v.ending.code === "A") {
-    const banner = el("img", "pixel victory");
-    banner.src = IMG + "px/victory_banner.png";
-    banner.alt = "Victory Royale";
-    panel.appendChild(banner);
+    const victory = el("img", "pixel victory");
+    victory.src = IMG + "px/victory_banner.png";
+    victory.alt = "Victory Royale";
+    panel.appendChild(victory);
   }
   panel.appendChild(el("p", "question", v.ending.text));
   const review = el("ul", "review");
@@ -329,50 +394,80 @@ function askStartOver() {
 
 // ---------- scenes ----------
 
-function enterScene(id, fromId) {
+function layoutScene(def, decorArg) {
+  grid = def.build ? def.build() : decorArg;
+  lc.clearRect(0, 0, VIEW_W, VIEW_H);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) drawTile(lc, grid[y][x], x, y, def.pal);
+  if (def.decor) def.decor(lc);
+}
+
+function placePlayer(sx, sy, dir) {
+  Object.assign(player, { tx: sx, ty: sy, fx: sx, fy: sy, last: [sx, sy], moving: false, prog: 0, step: 0, dir: dir || "down" });
+}
+
+// opts: landing (float down on a parachute), spawn ([x, y] to start on), resume
+function enterScene(id, fromId, opts) {
+  opts = opts || {};
   scene = id;
   path = null;
-  Object.assign(player, { moving: false, prog: 0, step: 0, dir: "down" });
+  held.length = 0;
   if (id === "bus") {
     Object.assign(bus, { sel: 0, jumping: false, jt: 0 });
+    town = null;
+    updateHud();
     return;
   }
   town = TOWNS[id];
-  grid = town.build();
-  if (id !== "storm") {
-    lc.clearRect(0, 0, VIEW_W, VIEW_H);
-    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) drawTile(lc, grid[y][x], x, y, town.pal);
+  if (id === "storm") {
+    grid = town.build();
+    health = opts.resume ? extras.health : 100;
+    if (!opts.resume) saveExtras();
+  } else {
+    layoutScene(town);
   }
   const arrival = fromId && town.exits.find((e) => e.dest === fromId);
-  const [sx, sy] = arrival ? arrival.spawn : town.spawn;
-  player.tx = sx; player.ty = sy; player.fx = sx; player.fy = sy; player.last = [sx, sy];
-  if (arrival) {
-    // face into the town, away from the edge you came in from
+  const [sx, sy] = opts.spawn || (arrival ? arrival.spawn : town.spawn);
+  let dir = "down";
+  if (arrival) {                     // face into the town, away from the edge you came in from
     const [ex, ey] = arrival.tiles[0];
-    player.dir = ex === 0 ? "right" : ex === COLS - 1 ? "left" : ey === 0 ? "down" : "up";
+    dir = ex === 0 ? "right" : ex === COLS - 1 ? "left" : ey === 0 ? "down" : "up";
   }
-  banner = { text: view ? view.scene_name : "", sub: "", time: 2600 };
-  if (!visited.has(id) && view) {
+  placePlayer(sx, sy, dir);
+  banner = { text: placeName(), time: 2600 };
+  landing.active = Boolean(opts.landing);
+  landing.t = 0;
+  // the supply drop floats down the first time the player is in Tilted Towers
+  drop.active = id === "tilted_towers" && !extras.tiltedSeen && !opts.resume && !state.inventory.includes("chug_jug");
+  drop.t = 0;
+  if (id === "tilted_towers" && !extras.tiltedSeen) {
+    extras.tiltedSeen = true;
+    saveExtras();
+  }
+  updateHud();
+  if (!landing.active) afterEnter(id);
+}
+
+function afterEnter(id) {
+  if (!visited.has(id) && view && !(town && town.interior)) {
     visited.add(id);
     showDialog(view.text);
   }
-  updateHud();
 }
 
 // Walk from one town onto the path to another. Nothing is sent to the server yet:
-// the game only counts the trip once the player reaches the danger in the middle.
+// the game only counts the trip once the player reaches the hazard in the middle.
 function enterPath(fromId, toId) {
-  const def = pathDefinition(fromId, toId);
+  const hazardId = view && view.ahead ? view.ahead[toId] : null;
+  const def = pathDefinition(fromId, toId, hazardId);
   scene = "path";
   path = { left: def.left, right: def.right, from: fromId, to: toId, def };
   town = { pal: def.pal, exits: [], signs: def.signs, objects: [], storm: null };
-  grid = def.grid;
-  lc.clearRect(0, 0, VIEW_W, VIEW_H);
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) drawTile(lc, grid[y][x], x, y, town.pal);
+  layoutScene({ pal: def.pal, build: null }, def.grid);
+  if (def.decal) drawHazardDecal(lc, def.decal, sprites);
   const [sx, sy] = def.ends[fromId].spawn;
-  Object.assign(player, { tx: sx, ty: sy, fx: sx, fy: sy, last: [sx, sy], moving: false, prog: 0, step: 0 });
-  player.dir = fromId === def.left ? "right" : "left";
-  banner = { text: "Path to " + TOWN_NAMES[toId], sub: "", time: 2400 };
+  placePlayer(sx, sy, fromId === def.left ? "right" : "left");
+  landing.active = false; drop.active = false;
+  banner = { text: "Path to " + TOWN_NAMES[toId], time: 2400 };
   updateHud();
 }
 
@@ -393,6 +488,7 @@ function objDone(o) {
   return false;
 }
 const objGone = (o) => o.sprite === "prop_supply_drop" && objDone(o);
+const objLocked = (o) => o.sprite === "prop_supply_drop" && drop.active;   // still floating down
 
 function solidAt(x, y) {
   if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return true;
@@ -406,7 +502,8 @@ function objectAt(x, y) {
 
 // ---------- doing things ----------
 
-async function perform(actionId, onReject) {
+// rejectText: shown instead of the server's reason when the action is refused
+async function perform(actionId, onReject, rejectText) {
   if (busy) return;
   busy = true;
   const before = view;
@@ -426,17 +523,17 @@ async function perform(actionId, onReject) {
     writeSave(state);                // saved after every accepted action
     view = result.data.view;
     soundsFor(before, view);
-    afterAction(before, fromScene);
+    afterAction(actionId, before, fromScene);
   } else {
-    // Not allowed (or broken request): nothing changed, say why.
     if (result.data.view) view = result.data.view;
-    showDialog(result.data.error || "Something went wrong. Please try again.");
+    showDialog(rejectText || result.data.error || "Something went wrong. Please try again.");
     if (onReject) onReject();
   }
   updateHud();
 }
 
-function afterAction(before, fromScene) {
+function afterAction(actionId, before, fromScene) {
+  if (actionId.startsWith("collect:")) play("open");
   if (view.status === "ended") {
     showEnding(view);
     return;
@@ -446,35 +543,58 @@ function afterAction(before, fromScene) {
     return;
   }
   if (view.scene_id !== fromScene) {
-    transition(() => enterScene(view.scene_id, fromScene));
+    const landed = fromScene === "bus";
+    transition(() => enterScene(view.scene_id, fromScene, { landing: landed }));
+    return;
+  }
+  if (actionId === "decide:danced:yes") {
+    startDance();
     return;
   }
   if (view.message) showDialog(view.message);
 }
 
-// What the player can use right now: the thing they face first, then anything
-// they stand on or stand right next to. Used things (already collected or decided)
-// are skipped, so the "Press SPACE" hint only shows when there is something to do.
+// The player's 7 second dance with the disco fever music.
+function startDance() {
+  dance.active = true;
+  dance.t = 0;
+  caption = "You bust out the default dance. Disco fever!";
+  sounds.music.pause();
+  play("dance");
+}
+
+function endDance() {
+  dance.active = false;
+  caption = "";
+  sounds.dance.pause();
+  if (view && view.status === "in_progress") startMusic();
+  showDialog("The two dancers nod in respect. Peely looks a little jealous of your moves.");
+}
+
+// What the player can use right now: the thing they face first, then anything they
+// stand on or right next to. Used things (already collected or decided) are skipped,
+// so the "Press SPACE" hint only shows when there is something to do.
 function nearbyTarget() {
-  if (!town) return null;
+  if (!town || !state) return null;
   const [dx, dy] = DELTA[player.dir];
   const spots = [[player.tx + dx, player.ty + dy], [player.tx, player.ty],
     [player.tx + 1, player.ty], [player.tx - 1, player.ty], [player.tx, player.ty + 1], [player.tx, player.ty - 1]];
   for (const [x, y] of spots) {
     const obj = objectAt(x, y);
-    if (obj && (obj.kind === "search" || !objDone(obj))) return { kind: "object", obj, x, y };
+    if (obj && obj.talk !== false && !objLocked(obj) && (obj.kind === "search" || obj.kind === "npc" || !objDone(obj))) {
+      return { kind: "object", obj, x, y };
+    }
     const sign = town.signs.find((sg) => sg.x === x && sg.y === y);
     if (sign) return { kind: "sign", sign, x, y };
   }
-  // used-up things still answer when faced directly
-  const [fx, fy] = spots[0];
+  const [fx, fy] = spots[0];     // used-up things still answer when faced directly
   const used = objectAt(fx, fy);
-  return used ? { kind: "object", obj: used, x: fx, y: fy, used: true } : null;
+  return used && used.talk !== false && !objLocked(used) ? { kind: "object", obj: used, x: fx, y: fy, used: true } : null;
 }
 
 function interact() {
   if (scene === "bus") {
-    if (!bus.jumping) {
+    if (bus.phase === "select" && !bus.jumping) {
       bus.jumping = true;
       bus.jt = 0;
     }
@@ -483,11 +603,23 @@ function interact() {
   if (player.moving) return;
   const target = nearbyTarget();
   if (!target) return;
-  if (target.kind === "sign") showDialog('The sign says: "' + target.sign.text + '"');
-  else useObject(target.obj);
+  if (target.kind === "sign") {
+    showDialog('The sign says: "' + target.sign.text + '"');
+    if (target.sign.desc) showDialog(target.sign.desc);
+  } else {
+    useObject(target.obj);
+  }
 }
 
 function useObject(o) {
+  if (o.kind === "npc") {
+    let lines = o.lines;
+    if (o.referee && state.inventory.includes("chug_jug")) lines = o.linesWithJug;
+    const n = talkCount.get(o) || 0;
+    talkCount.set(o, n + 1);
+    showDialog(NPC_NAMES[o.style] + ": " + lines[n % lines.length]);
+    return;
+  }
   const id = o.kind === "search" ? "search" : o.kind === "collect" ? "collect:" + o.key : "decide:" + o.key + ":";
   const choices = view.choices.filter((c) => (o.kind === "decide" ? c.id.startsWith(id) : c.id === id));
   if (!choices.length) {
@@ -511,7 +643,7 @@ function onArrive() {
   const on = (tiles) => tiles.some(([tx, ty]) => tx === x && ty === y);
   if (scene === "path") {
     if (on(path.def.hazardTiles)) {
-      perform("travel:" + path.to, () => stepBack());      // the danger starts here
+      perform("travel:" + path.to, () => stepBack());      // the hazard (if any is left) starts here
       return;
     }
     for (const [townId, end] of Object.entries(path.def.ends)) {
@@ -523,13 +655,24 @@ function onArrive() {
     }
     return;
   }
+  if (town.leave && on(town.leave.tiles)) {                  // leaving the supermarket
+    transition(() => enterScene(town.leave.to, null, { spawn: town.leave.spawn }));
+    return;
+  }
+  const door = (town.doors || []).find((d) => on(d.tiles));
+  if (door) {
+    const inside = TOWNS[door.to];
+    transition(() => enterScene(door.to, scene, { spawn: inside.spawn }));
+    return;
+  }
   const exit = town.exits.find((e) => on(e.tiles));
   if (exit) {
     transition(() => enterPath(scene, exit.dest));
     return;
   }
   if (town.storm && on(town.storm.tiles)) {
-    perform("storm", () => stepBack());
+    const referee = TOWNS.polar_peak.objects.find((o) => o.referee);
+    perform("storm", () => stepBack(), "Referee: " + referee.lines[0]);
   }
 }
 
@@ -550,10 +693,33 @@ async function startNewGame() {
   state = result.data.state;
   view = result.data.view;
   writeSave(state);
+  extras = { tiltedSeen: false, health: 100 };
+  health = 100;
+  saveExtras();
   visited.clear();
-  beginWorld();
-  showDialog(view.text);
+  talkCount.clear();
+  dance.active = false; caption = "";
+  $("start").hidden = true;
+  $("stage").hidden = false;
+  closeModal();
+  resetDialogs();
+  enterScene("bus", null);
+  startBusIntro();
   startMusic();
+}
+
+function startBusIntro() {
+  bus.phase = "intro";
+  bus.t0 = performance.now();
+  showDialog(view.text, () => {
+    bus.phase = "ready";
+    bus.t0 = performance.now();
+    showDialog(BUS_READY_TEXT, () => {
+      bus.phase = "select";
+      updateHud();
+    });
+  });
+  updateHud();
 }
 
 async function resume() {
@@ -566,22 +732,21 @@ async function resume() {
   }
   state = result.data.state;
   view = result.data.view;
+  loadExtras();
   visited.clear();
-  beginWorld();
-  if (view.status === "in_progress") startMusic();
-}
-
-function beginWorld() {
+  talkCount.clear();
+  dance.active = false; caption = "";
   $("start").hidden = true;
   $("stage").hidden = false;
   closeModal();
-  dialogQueue = [];
-  nextDialog();
+  resetDialogs();
   visited.add(view.scene_id);
-  enterScene(view.scene_id, null);
-  if (view.scene_id !== "bus") banner.time = 2000;
+  enterScene(view.scene_id, null, { resume: true });
+  if (view.scene_id === "bus") bus.phase = "select";
+  banner.time = view.scene_id === "bus" ? 0 : 2000;
   if (view.status === "ended") showEnding(view);
   else if (view.hazard) showHazard(view);
+  else startMusic();
   updateHud();
 }
 
@@ -598,11 +763,7 @@ function outlineText(c, text, x, y, color, size) {
 }
 
 function pixelEllipse(c, cx, cy, rx, ry, color) {
-  c.fillStyle = color;
-  for (let dy = -ry; dy <= ry; dy++) {
-    const half = Math.round(rx * Math.sqrt(1 - (dy / ry) * (dy / ry)));
-    c.fillRect(Math.round(cx - half), Math.round(cy + dy), half * 2, 1);
-  }
+  ellipse(c, cx, cy, rx, ry, color);
 }
 
 function drawFog(c, t, strength) {
@@ -633,113 +794,158 @@ function drawStormTiles(t) {
   }
 }
 
-function drawObjects(t) {
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+
+// llama hoof prints: two toes side by side, a heel mark, a trail leading off
+function drawLlamaTracks(ox, oy, used) {
+  const color = used ? "#9b8559" : "#5a3d1c";
+  [[1, 10], [7, 5], [2, 1]].forEach(([dx, dy], i) => {
+    const x = ox + dx + (i % 2) * 2, y = oy + dy;
+    px(b, x, y, 2, 4, color); px(b, x + 3, y, 2, 4, color);       // two toes
+    px(b, x + 1, y + 4, 3, 1, color);                              // heel
+    px(b, x + 2, y - 1, 1, 1, color);                              // notch between the toes
+  });
+  px(b, ox + 11, oy + 12, 2, 3, color); px(b, ox + 14, oy + 12, 2, 3, color);
+}
+
+function drawActors(t) {
+  const actors = [];
+  const ground = [];
   town.objects.forEach((o) => {
     if (objGone(o)) return;
     const done = objDone(o);
     const ox = o.x * T, oy = o.y * T;
-    const img = o.sprite ? sprites[o.sprite] : null;
-    const spriteH = img && img.naturalHeight ? img.naturalHeight : T;
-    if (!done) {
-      // yellow glow on the ground under the thing
-      const pulse = 0.28 + 0.2 * Math.sin(t / 280);
+    if (o.decal === "tracks") drawLlamaTracks(ox, oy, done);
+    if (o.decal === "lookout") {
+      px(b, ox + 7, oy - 10, 1, 16, "#4a3320");
+      px(b, ox + 8, oy - 10, 7, 5, done ? "#ffd23f" : "#e0463c");
+    }
+    if (o.marker && !done && !objLocked(o)) {
+      const pulse = 0.28 + 0.2 * Math.sin(t / 280);               // yellow glow on the ground
       pixelEllipse(b, ox + 8, oy + 13, 13, 6, "rgba(255,210,63," + pulse.toFixed(2) + ")");
       pixelEllipse(b, ox + 8, oy + 13, 8, 4, "rgba(255,240,150," + (pulse + 0.12).toFixed(2) + ")");
     }
-    if (img && img.complete && img.naturalWidth) {
-      const bob = o.sprite === "llama" ? Math.round(Math.sin(t / 400) * 1.5) : 0;
-      b.globalAlpha = done ? 0.55 : 1;
-      b.drawImage(img, ox + Math.round((T - img.naturalWidth) / 2), oy + T - img.naturalHeight + bob);
-      b.globalAlpha = 1;
-    }
-    if (o.decal === "tracks") {
-      const color = done ? "#9b8559" : "#6a4b22";
-      [[3, 3], [8, 6], [4, 10], [10, 12]].forEach(([dx, dy]) => {
-        px(b, ox + dx, oy + dy, 3, 2, color); px(b, ox + dx + 1, oy + dy - 1, 1, 1, color);
-      });
-    }
-    if (o.decal === "lookout") {
-      px(b, ox + 1, oy + 6, 14, 10, "#7c8095"); px(b, ox + 3, oy + 4, 10, 4, "#9aa0b8");
-      px(b, ox + 7, oy - 8, 1, 14, "#4a3320");
-      px(b, ox + 8, oy - 8, 6, 4, done ? "#ffd23f" : "#e0463c");
-    }
-    if (o.marker && !done) {
-      // a bouncing yellow exclamation mark above the thing
-      const bounce = Math.round(Math.abs(Math.sin(t / 240)) * 4);
-      const topY = o.decal === "lookout" ? oy - 12 : oy + T - spriteH;
-      const mx = ox + 5, my = topY - 14 - bounce;
-      px(b, mx - 1, my - 1, 8, 13, "#1b1030");
-      px(b, mx, my, 6, 11, "#ffd23f");
-      px(b, mx + 2, my + 1, 2, 5, "#1b1030");
-      px(b, mx + 2, my + 8, 2, 2, "#1b1030");
-    }
+    ground.push(o);
+    actors.push({ y: o.y, draw: () => drawObjectSprite(o, done, t) });
   });
+  if (town.ball) {
+    const p = 0.5 + 0.5 * Math.sin(t / 650);
+    const bx = (town.ball.from[0] + (town.ball.to[0] - town.ball.from[0]) * p) * T + 6;
+    const by = (town.ball.from[1] + (town.ball.to[1] - town.ball.from[1]) * p) * T + 11 - Math.abs(Math.sin(t / 650 * 2)) * 6;
+    actors.push({ y: town.ball.from[1], draw: () => { pixelEllipse(b, bx + 2, by + 6, 3, 1, "rgba(0,0,0,0.25)"); px(b, bx, by, 5, 5, "#f4f4f4"); px(b, bx + 1, by + 1, 2, 2, "#222"); } });
+  }
+  const px_ = player.fx + (player.tx - player.fx) * player.prog;
+  const py_ = player.fy + (player.ty - player.fy) * player.prog;
+  actors.push({ y: py_ + 0.4, draw: () => drawThePlayer(px_, py_, t) });
+  actors.sort((a, c2) => a.y - c2.y).forEach((a) => a.draw());
+  ground.forEach((o) => {                                          // bouncing exclamation marks on top
+    if (!o.marker || objDone(o) || objGone(o) || objLocked(o)) return;
+    const ox = o.x * T, oy = o.y * T;
+    const img = o.sprite ? sprites[o.sprite] : null;
+    const topY = o.kind === "npc" || o.sprite === "llama" ? oy - 8 - (o.sprite === "llama" ? 18 : 0)
+      : o.decal === "lookout" ? oy - 12 : img && img.naturalHeight ? oy + T - img.naturalHeight : oy;
+    const bounce = Math.round(Math.abs(Math.sin(t / 240)) * 4);
+    const mx = ox + 5, my = topY - 14 - bounce;
+    px(b, mx - 1, my - 1, 8, 13, "#1b1030");
+    px(b, mx, my, 6, 11, "#ffd23f");
+    px(b, mx + 2, my + 1, 2, 5, "#1b1030");
+    px(b, mx + 2, my + 8, 2, 2, "#1b1030");
+  });
+}
+
+function drawObjectSprite(o, done, t) {
+  const ox = o.x * T, oy = o.y * T;
+  if (o.kind === "npc") {
+    drawNPC(b, ox, oy, o.style, o.pose, t);
+    return;
+  }
+  const img = o.sprite ? sprites[o.sprite] : null;
+  if (!img || !img.complete || !img.naturalWidth) return;
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const x = ox + Math.round((T - w) / 2);
+  if (o.sprite === "prop_supply_drop") {
+    if (drop.active) {                          // floating down on its balloon
+      const p = easeOut(Math.min(1, drop.t / drop.dur));
+      const y = -h + (oy + T) * p;
+      pixelEllipse(b, ox + 8, oy + 13, 4 + 6 * p, 2 + 3 * p, "rgba(0,0,0," + (0.1 + 0.2 * p).toFixed(2) + ")");
+      b.drawImage(img, x + Math.round(Math.sin(t / 300) * 2 * (1 - p)), Math.round(y));
+    } else {                                    // landed: only the crate is left
+      const crate = Math.round(h * 0.34);
+      b.drawImage(img, 0, h - crate, w, crate, x, oy + T - crate, w, crate);
+    }
+    return;
+  }
+  const bob = o.sprite === "llama" ? Math.round(Math.sin(t / 400) * 1.5) : 0;
+  b.globalAlpha = done ? 0.55 : 1;
+  b.drawImage(img, x, oy + T - h + bob);
+  b.globalAlpha = 1;
+}
+
+function drawThePlayer(x, y, t) {
+  const tx = Math.round(x * T), ty = Math.round(y * T);
+  if (landing.active) {                         // floating down on a parachute
+    const p = easeOut(Math.min(1, landing.t / landing.dur));
+    const lift = (1 - p) * (ty + 40);
+    const chute = p < 0.93;
+    if (chute) {
+      const cy = ty - lift - 30;
+      ellipse(b, tx + 8, cy + 6, 14, 7, "#ff5fa8");
+      ellipse(b, tx + 8, cy + 4, 10, 4, "#ff8fc8");
+      px(b, tx + 2, cy + 9, 1, 14, "#f4f4f4"); px(b, tx + 14, cy + 9, 1, 14, "#f4f4f4");
+    }
+    drawPlayer(b, tx, Math.round(ty - lift), "down", 0, "walk", t);
+    return;
+  }
+  drawPlayer(b, tx, ty, player.dir, player.step, dance.active ? "dance" : "walk", t);
 }
 
 function drawWorld(t) {
   if (scene === "storm") drawStormScreen(t);
   else b.drawImage(layer, 0, 0);
-  drawObjects(t);
+  drawActors(t);
   if (scene !== "storm") drawStormTiles(t);
-  const x = player.fx + (player.tx - player.fx) * player.prog;
-  const y = player.fy + (player.ty - player.fy) * player.prog;
-  drawPlayer(b, Math.round(x * T), Math.round(y * T), player.dir, player.step);
-  if (scene === "storm") drawFog(b, t + 5000, 0.18);
+  if (scene === "storm") {
+    drawFog(b, t + 5000, 0.18);
+    const hit = Math.floor(t / 1000) % 2 === 0 ? 0.05 : 0;       // a faint red flash while the storm hurts
+    if (hit && canDrain()) px(b, 0, 0, VIEW_W, VIEW_H, "rgba(255,0,0," + hit + ")");
+  }
 }
 
 function drawBusScene(t) {
   const sky = ["#2f7fe0", "#3a8ae6", "#4a96ea", "#5ca4ee", "#74b4f2", "#8cc4f6", "#a6d4fa", "#c4e4fc"];
-  sky.forEach((color, i) => px(b, 0, i * 20, VIEW_W, 21, color));
-  for (let i = 0; i < 7; i++) {
+  sky.forEach((color, i) => px(b, 0, i * 24, VIEW_W, 25, color));
+  for (let i = 0; i < 9; i++) {
     const x = ((i * 71 + t / 1000 * (6 + i * 2)) % (VIEW_W + 100)) - 50;
-    pixelEllipse(b, x, 30 + (i * 23) % 100, 26 + (i % 3) * 8, 7 + (i % 2) * 2, "#ffffff");
-    pixelEllipse(b, x + 18, 34 + (i * 23) % 100, 16, 5, "#e8f4ff");
+    pixelEllipse(b, x, 22 + (i * 23) % 150, 26 + (i % 3) * 8, 7 + (i % 2) * 2, "#ffffff");
+    pixelEllipse(b, x + 18, 26 + (i * 23) % 150, 16, 5, "#e8f4ff");
   }
-  const busImg = sprites.bus;
-  const bobY = Math.round(Math.sin(t / 500) * 2);
-  const busX = 160;
-  if (busImg.complete && busImg.naturalWidth) {
-    b.drawImage(busImg, busX - Math.round(busImg.naturalWidth / 2), 6 + bobY);
-  }
-  // the island and the four landing spots
-  px(b, 0, 138, VIEW_W, 54, "#1f6fd0");
-  BUS_ZONES.forEach((zone, i) => {
-    const x = 10 + i * 78;
-    px(b, x, 140, 62, 36, "#2c9a3a");
-    px(b, x + 4, 144, 54, 28, zone.color);
-    px(b, x + 4, 144, 54, 2, "rgba(255,255,255,0.35)");
-    if (zone.id === "pleasant_park") { px(b, x + 10, 150, 14, 10, "#c0392b"); px(b, x + 12, 160, 10, 8, "#f3e6c8"); px(b, x + 36, 152, 10, 10, "#2c8a3a"); }
-    if (zone.id === "tilted_towers") { px(b, x + 8, 148, 12, 20, "#6b6f80"); px(b, x + 24, 154, 12, 14, "#d9c9a3"); px(b, x + 40, 146, 8, 22, "#6b6f80"); }
-    if (zone.id === "polar_peak") { px(b, x + 12, 150, 30, 16, "#555b78"); px(b, x + 18, 146, 8, 6, "#555b78"); px(b, x + 32, 146, 8, 6, "#555b78"); }
-    if (zone.id === "retail_row") { px(b, x + 6, 146, 42, 10, "#1fa3a3"); px(b, x + 6, 160, 42, 4, "#ffd23f"); }
-  });
-  const sel = BUS_ZONES[bus.sel];
-  const selX = 10 + bus.sel * 78 + 31;
-  const arrowY = 124 + Math.round(Math.sin(t / 200) * 2);
-  px(b, selX - 4, arrowY, 9, 2, "#ffd23f"); px(b, selX - 3, arrowY + 2, 7, 2, "#ffd23f");
-  px(b, selX - 2, arrowY + 4, 5, 2, "#ffd23f"); px(b, selX - 1, arrowY + 6, 3, 2, "#ffd23f");
-  if (bus.jumping) {
-    bus.jt = Math.min(1, bus.jt + 0.016 / 1.6);
-    const e = bus.jt;
-    const x = busX + (selX - busX) * e;
-    const y = 52 + (150 - 52) * e;
-    px(b, Math.round(x) - 10, Math.round(y) - 20, 20, 8, "#ff5fa8");
-    px(b, Math.round(x) - 8, Math.round(y) - 22, 16, 2, "#ff5fa8");
-    px(b, Math.round(x) - 10, Math.round(y) - 12, 1, 8, "#fff");
-    px(b, Math.round(x) + 9, Math.round(y) - 12, 1, 8, "#fff");
-    drawPlayer(b, Math.round(x) - 8, Math.round(y) - 2, "down", Math.floor(t / 150) % 2);
-    if (bus.jt >= 1 && !busy) {
-      bus.jumping = false;
-      perform("land:" + sel.id, () => { bus.jumping = false; bus.jt = 0; });
+  if (bus.phase !== "select") {                                   // the big Battle Bus
+    const img = sprites.bus;
+    if (img.complete && img.naturalWidth) {
+      const bob = Math.round(Math.sin(t / 500) * 3);
+      b.drawImage(img, Math.round(VIEW_W / 2 - img.naturalWidth / 2), 10 + bob);
     }
+    return;
   }
+  BUS_ZONES.forEach((zone, i) => {                                // the four drop locations
+    const cx = 16 + (i % 2) * 160, cy = 22 + Math.floor(i / 2) * 82;
+    const selected = i === bus.sel;
+    const flash = bus.jumping && Math.floor(t / 90) % 2 === 0;
+    px(b, cx - 3, cy - 3, 134, 78, selected ? (flash ? "#ffffff" : "#ffd23f") : "#1b1030");
+    const img = sprites["drop_" + zone.id];
+    if (img.complete && img.naturalWidth) b.drawImage(img, cx, cy);
+  });
 }
 
 function drawLabels(t) {
   if (scene === "bus") {
-    BUS_ZONES.forEach((zone, i) => {
-      outlineText(ctx, zone.name, (10 + i * 78 + 31) * SCALE, 186 * SCALE, i === bus.sel ? "#ffd23f" : "#ffffff", 13);
-    });
+    if (bus.phase === "select") {
+      outlineText(ctx, bus.jumping ? "JUMP!" : "CHOOSE WHERE TO DROP", canvas.width / 2, 16 * SCALE - 8, "#ffffff", 20);
+      BUS_ZONES.forEach((zone, i) => {
+        const cx = 16 + (i % 2) * 160, cy = 22 + Math.floor(i / 2) * 82;
+        outlineText(ctx, zone.name, (cx + 64) * SCALE, (cy + 72 + 9) * SCALE, i === bus.sel ? "#ffd23f" : "#ffffff", 13);
+      });
+    }
     return;
   }
   town.signs.forEach((s) => {
@@ -754,15 +960,17 @@ function drawLabels(t) {
     ctx.fillStyle = "#3b220f"; ctx.textAlign = "center";
     ctx.fillText(s.text, left + w / 2, top + 15);
   });
-  if (!modal && !dialogOpen) {
+  if (!modal && !dialogOpen && !landing.active && !dance.active) {
     const target = nearbyTarget();
     if (target && !target.used) {
       let tileTop = target.y * T;
-      if (target.kind === "object" && target.obj.sprite) {
+      if (target.kind === "object" && target.obj.kind === "npc") tileTop -= 8;
+      else if (target.kind === "object" && target.obj.sprite) {
         const img = sprites[target.obj.sprite];
         if (img && img.naturalHeight) tileTop = target.y * T + T - img.naturalHeight;
       }
-      const label = target.kind === "sign" ? "Press SPACE to read" : "Press SPACE to interact";
+      const label = target.kind === "sign" ? "Press SPACE to read"
+        : target.obj.kind === "npc" ? "Press SPACE to talk" : "Press SPACE to interact";
       ctx.font = 'bold 14px "Courier New", Courier, monospace';
       const w = ctx.measureText(label).width + 16;
       const cx = Math.max(w / 2 + 4, Math.min(canvas.width - w / 2 - 4, (target.x * T + 8) * SCALE));
@@ -773,6 +981,15 @@ function drawLabels(t) {
       ctx.fillText(label, cx, cy);
     }
   }
+  if (caption) {                                                   // a text box that does not block (dance)
+    ctx.font = 'bold 16px "Courier New", Courier, monospace';
+    const w = ctx.measureText(caption).width + 40;
+    const x = canvas.width / 2 - w / 2, y = canvas.height - 62;
+    ctx.fillStyle = "#1b1030"; ctx.fillRect(x - 3, y - 3, w + 6, 44);
+    ctx.fillStyle = "#fffdf0"; ctx.fillRect(x, y, w, 38);
+    ctx.fillStyle = "#1b1030"; ctx.textAlign = "center";
+    ctx.fillText(caption, canvas.width / 2, y + 24);
+  }
   if (banner.time > 0) {
     ctx.globalAlpha = Math.min(1, banner.time / 500);
     outlineText(ctx, banner.text.toUpperCase(), canvas.width / 2, 34, "#ffd23f", 24);
@@ -782,12 +999,17 @@ function drawLabels(t) {
 
 // ---------- the loop ----------
 
+function canDrain() {
+  return scene === "storm" && !modal && !dialogOpen && !busy && view && view.status === "in_progress";
+}
+
 let lastTime = performance.now();
 function loop(now) {
-  const dt = Math.min(50, now - lastTime);
+  const real = now - lastTime;             // real time: animations and sounds keep their length
+  const dt = Math.min(50, real);           // capped time: walking and the storm never jump ahead
   lastTime = now;
   if (!$("stage").hidden && scene) {
-    update(dt);
+    update(dt, now, real);
     if (scene === "bus") drawBusScene(now); else drawWorld(now);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(base, 0, 0, canvas.width, canvas.height);
@@ -798,10 +1020,46 @@ function loop(now) {
 }
 
 function canMove() {
-  return !modal && !dialogOpen && !busy && scene !== "bus";
+  return !modal && !dialogOpen && !busy && scene !== "bus" && !landing.active && !dance.active;
 }
 
-function update(dt) {
+function update(dt, now, real) {
+  // the bus screen waits for 30 seconds or a click, then moves on
+  if (scene === "bus" && dialogOpen && (bus.phase === "intro" || bus.phase === "ready") && now - bus.t0 > AUTO_ADVANCE_MS) {
+    nextDialog();
+  }
+  if (scene === "bus" && bus.jumping) {
+    bus.jt += real / 1000;
+    if (bus.jt >= 0.8 && !busy) {
+      bus.jumping = false;
+      const zone = BUS_ZONES[bus.sel];
+      perform("land:" + zone.id, () => { bus.jumping = false; });
+    }
+  }
+  if (landing.active) {
+    landing.t += real;
+    if (landing.t >= landing.dur) {
+      landing.active = false;
+      afterEnter(scene);
+    }
+  }
+  if (drop.active) {
+    drop.t += real;
+    if (drop.t >= drop.dur) drop.active = false;
+  }
+  if (dance.active) {
+    dance.t += real;
+    if (dance.t >= dance.dur) endDance();
+  }
+  if (canDrain()) {                                // only inside the storm: the health goes down
+    health = Math.max(0, health - STORM_DAMAGE_PER_SECOND * dt / 1000);
+    updateHealthBar();
+    if (now - lastExtrasSave > 500) { saveExtras(); lastExtrasSave = now; }
+    if (health <= 0) {
+      saveExtras();
+      perform("storm_timeout");
+    }
+  }
   if (!canMove()) return;
   if (player.moving) {
     player.prog += dt / STEP_MS;
@@ -838,9 +1096,11 @@ window.addEventListener("keydown", (e) => {
   const dir = DIRS[code];
   if (dir) {
     e.preventDefault();
-    if (scene === "bus" && !modal && !dialogOpen && !bus.jumping && !e.repeat) {
-      if (dir === "left") bus.sel = (bus.sel + BUS_ZONES.length - 1) % BUS_ZONES.length;
-      if (dir === "right") bus.sel = (bus.sel + 1) % BUS_ZONES.length;
+    if (scene === "bus" && bus.phase === "select" && !modal && !dialogOpen && !bus.jumping && !e.repeat) {
+      if (dir === "left" && bus.sel % 2 === 1) bus.sel -= 1;
+      if (dir === "right" && bus.sel % 2 === 0) bus.sel += 1;
+      if (dir === "up" && bus.sel >= 2) bus.sel -= 2;
+      if (dir === "down" && bus.sel < 2) bus.sel += 2;
     }
     if (!held.includes(dir)) held.push(dir);
     return;
@@ -859,10 +1119,10 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     if (e.repeat) return;
     if (dialogOpen) nextDialog();
-    else if (!busy && code !== "Escape") interact();
+    else if (!busy && !landing.active && !dance.active && code !== "Escape") interact();
     return;
   }
-  if (code === "KeyT" && scene === "bus" && !dialogOpen && !busy && !bus.jumping) talkToDriver();
+  if (code === "KeyT" && scene === "bus" && bus.phase === "select" && !dialogOpen && !busy && !bus.jumping) talkToDriver();
 });
 
 window.addEventListener("keyup", (e) => {
@@ -881,7 +1141,10 @@ $("new-btn").addEventListener("click", askStartOver);
 $("restart-btn").addEventListener("click", (e) => { e.currentTarget.blur(); askStartOver(); });
 $("mute-btn").addEventListener("click", (e) => { e.currentTarget.blur(); setMuted(!muted); });
 $("dialog").addEventListener("click", nextDialog);
+canvas.addEventListener("click", () => { if (scene === "bus" && dialogOpen) nextDialog(); });
 
+loadExtras();
 setMuted(muted);
 showStart();
+updateHealthBar();
 requestAnimationFrame(loop);

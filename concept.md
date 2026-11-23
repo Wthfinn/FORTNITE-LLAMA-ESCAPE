@@ -1,6 +1,6 @@
 # Plot Twist – "Where's My Llama?" · Conceptual Foundation
 
-Draft v0.7 · 23 Nov 2026 · based on the Plot Twist BRD v1.0
+Draft v0.8 · 23 Nov 2026 · based on the Plot Twist BRD v1.0
 
 This document tells us **what** we build and **what we don't** before we write any code.
 It stays at the complexity of the BRD on purpose.
@@ -375,3 +375,47 @@ only how the player moves and chooses did.
 - **Not part of the saved game:** the player's exact position. After resuming, the player stands at the
   start tile of the saved place. Everything the rules care about (place, items, decisions, hazards,
   ending) is saved as before.
+
+---
+
+## 15. Changes made on 23 Nov (afternoon)
+
+These changes replace the older text in sections 3 to 9 where they differ.
+
+**Hazards belong to paths, not to places.**
+- There are 6 paths (every pair of the 4 places). **Each path has exactly 2 hazards** (12 in total), which
+  happen in order the first two times the path is walked, in either direction. After both are survived the
+  path is free: walking over the middle of it just takes you to the other place.
+- `game.py` finds the next hazard with `next_hazard(state, origin, destination)`. The page learns which
+  hazard is waiting on each path from `view["ahead"]` and draws a subtle hint on the path (footprints,
+  shell casings, scorch marks, cracks, the trap).
+- Paths are lined with trees, bricks or ice so the player cannot walk around the hazard.
+
+| Path | Hazard 1 | Hazard 2 |
+|---|---|---|
+| Pleasant Park - Tilted Towers | H1 spike trap | H5 team smokes you from the clock tower |
+| Pleasant Park - Retail Row | H2 camping squad | H4 sniper |
+| Pleasant Park - Polar Peak | H7 cliff edge | H8 shotgun player |
+| Tilted Towers - Retail Row | H3 rocket | H6 suspicious doorway |
+| Tilted Towers - Polar Peak | H9 thin ice | H10 avalanche |
+| Retail Row - Polar Peak | H11 another squad | H12 rooftop rocket |
+
+**The Chug Jug is the key to the storm.** Only the Chug Jug opens the way into the Storm (the Impulse
+Grenades alone do not). The good ending (A) needs the three right decisions **and** the Impulse Grenades,
+so it needs both items.
+
+**Health in the storm.** The player has 100 health. Nothing outside the storm hurts. Inside the storm the
+health drops by 5 every second (not while a message or menu is open). At 0 the page sends the new action
+`storm_timeout` and the game ends with Ending C ("Eliminated"). The server accepts `storm_timeout` only in
+the Storm. The remaining health is kept in the browser, so resuming in the storm continues where it was.
+
+**Other additions.**
+- Bus screen: big Battle Bus for up to 30 seconds (or a click), then a "time to drop" message, then the
+  drop screen with a picture of each location.
+- Every landing from the bus is a parachute descent. In Tilted Towers the supply drop floats down the
+  first time the player is there.
+- Retail Row has a supermarket (walk through the entrance) with a cashier, two dancing characters and a
+  7 second dance animation with the disco fever music.
+- Pleasant Park has a half football pitch with three footballers who tell jokes.
+- Polar Peak has a big mountain with a winding path to the summit, and a referee at the storm gate.
+- Signs have sarcastic descriptions. Picking up the supply drop or using the vending machine plays a sound.

@@ -8,7 +8,8 @@ import game
 import story
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
-SOUNDS = ["music.mp3", "hazard_alert.mp3", "shotgun.mp3", "elimination.mp3", "victory.mp3"]
+SOUNDS = ["music.mp3", "hazard_alert.mp3", "shotgun.mp3", "elimination.mp3", "victory.mp3",
+          "open.mp3", "dance.mp3"]
 
 
 def img(name):
@@ -52,6 +53,7 @@ class PixelArtFileTests(unittest.TestCase):
                  "item_chug_jug.png", "item_impulse_grenades.png",
                  "prop_vending_machine.png", "prop_supply_drop.png"]
         names += [f"hazard_{h}.png" for h in story.HAZARDS]
+        names += [f"drop_{poi}.png" for poi in story.POIS]
         names += [f"ending_{c.lower()}.png" for c in story.ENDINGS]
         for name in names:
             self.assertTrue((px / name).is_file(), name)
@@ -84,7 +86,7 @@ class MapViewTests(unittest.TestCase):
     def test_storm_node_is_hidden_until_the_player_has_gear(self):
         no_gear = game.build_view(self.play("land:polar_peak"))
         self.assertNotIn("storm", {n["id"] for n in no_gear["map"]["nodes"]})
-        gear = self.play("land:retail_row", "collect:impulse_grenades",
+        gear = self.play("land:tilted_towers", "collect:chug_jug",
                          "travel:polar_peak", "hazard:0")
         nodes = {n["id"]: n for n in game.build_view(gear)["map"]["nodes"]}
         self.assertEqual(nodes["storm"]["action"], "storm")
@@ -93,7 +95,7 @@ class MapViewTests(unittest.TestCase):
         state = self.play("land:retail_row", "travel:polar_peak")
         view = game.build_view(state)
         self.assertEqual(view["map"]["token_at"], "polar_peak")
-        self.assertEqual(view["hazard"]["image"], "hazard_H7.jpg")
+        self.assertEqual(view["hazard"]["image"], "hazard_H11.jpg")
         self.assertEqual(len(view["choices"]), 3)
         self.assertFalse(any(n["action"] for n in view["map"]["nodes"]))
 

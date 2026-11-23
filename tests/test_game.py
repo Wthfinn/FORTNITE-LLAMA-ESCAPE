@@ -1,6 +1,8 @@
 """Tests for the game rules (game.py).
 
 The test names follow the acceptance scenarios A1-A6 of the Plot Twist BRD.
+Hazards belong to the six paths between the four places: each path has exactly
+two hazards, first one first, and is free afterwards.
 """
 
 import copy
@@ -25,6 +27,11 @@ def ids(state):
 def at_polar_peak(*extra):
     """Land at Polar Peak (no hazard on landing), then do `extra` actions."""
     return play(game.new_state(), "land:polar_peak", *extra)
+
+
+def polar_peak_with_chug_jug():
+    return play(game.new_state(), "land:tilted_towers", "collect:chug_jug",
+                "travel:polar_peak", "hazard:0")
 
 
 class StartTests(unittest.TestCase):
@@ -67,27 +74,48 @@ class LockedRouteTests(unittest.TestCase):
         self.assertNotIn("storm", ids(at_polar_peak()))
 
     def test_a2_unlocked_route_with_chug_jug(self):
-        state = play(game.new_state(), "land:tilted_towers", "collect:chug_jug",
-                     "travel:polar_peak", "hazard:0", "storm")
+        state = play(polar_peak_with_chug_jug(), "storm")
         self.assertEqual(state["current_scene"], "storm")
         self.assertIn("chug_jug", state["inventory"])
 
-    def test_unlocked_route_with_grenades(self):
+    def test_the_grenades_alone_do_not_open_the_storm(self):
         state = play(game.new_state(), "land:retail_row", "collect:impulse_grenades",
-                     "travel:polar_peak", "hazard:0", "storm")
-        self.assertEqual(state["current_scene"], "storm")
-        self.assertIn("impulse_grenades", state["inventory"])
+                     "travel:polar_peak", "hazard:0")
+        self.assertEqual(state["current_scene"], "polar_peak")
+        self.assertNotIn("storm", ids(state))
+        before = copy.deepcopy(state)
+        with self.assertRaises(game.ActionError):
+            game.apply_action(state, "storm")
+        self.assertEqual(state, before)
 
     def test_storm_is_only_offered_at_polar_peak(self):
-        state = play(game.new_state(), "land:retail_row", "collect:impulse_grenades")
+        state = play(game.new_state(), "land:tilted_towers", "collect:chug_jug")
         self.assertNotIn("storm", ids(state))
         with self.assertRaises(game.ActionError):
             game.apply_action(state, "storm")
 
     def test_storm_entry_is_one_way(self):
-        state = play(game.new_state(), "land:retail_row", "collect:impulse_grenades",
-                     "travel:polar_peak", "hazard:0", "storm")
-        self.assertEqual(ids(state), {"search"})
+        state = play(polar_peak_with_chug_jug(), "storm")
+        self.assertEqual(ids(state), {"search", "storm_timeout"})
+
+
+class StormTimeoutTests(unittest.TestCase):
+    def test_storm_timeout_ends_the_game_with_ending_c(self):
+        state = play(polar_peak_with_chug_jug(), "storm", "storm_timeout")
+        self.assertEqual((state["status"], state["ending"]), ("ended", "C"))
+
+    def test_storm_timeout_is_rejected_outside_the_storm(self):
+        for state in (game.new_state(), at_polar_peak(), polar_peak_with_chug_jug()):
+            before = copy.deepcopy(state)
+            with self.subTest(scene=state["current_scene"]), self.assertRaises(game.ActionError):
+                game.apply_action(state, "storm_timeout")
+            self.assertEqual(state, before)
+
+    def test_nothing_happens_after_the_storm_took_the_player(self):
+        state = play(polar_peak_with_chug_jug(), "storm", "storm_timeout")
+        for action in ("search", "storm_timeout", "land:retail_row"):
+            with self.subTest(action=action), self.assertRaises(game.ActionError):
+                game.apply_action(state, action)
 
 
 class ItemTests(unittest.TestCase):
@@ -136,9 +164,9 @@ class DecisionTests(unittest.TestCase):
 
 
 class HazardTests(unittest.TestCase):
-    def test_travel_shows_the_first_hazard_of_the_destination(self):
+    def test_travel_shows_the_first_hazard_of_the_path(self):
         state = play(game.new_state(), "land:retail_row", "travel:polar_peak")
-        self.assertEqual(state["pending_hazard"], "H7")
+        self.assertEqual(state["pending_hazard"], "H11")
         self.assertEqual(state["current_scene"], "retail_row")  # not there yet
         self.assertEqual(len(game.get_actions(state)), 3)
 
@@ -148,7 +176,7 @@ class HazardTests(unittest.TestCase):
                 state = play(game.new_state(), "land:retail_row", "travel:polar_peak",
                              f"hazard:{option}")
                 self.assertEqual(state["current_scene"], "polar_peak")
-                self.assertEqual(state["used_hazards"], ["H7"])
+                self.assertEqual(state["used_hazards"], ["H11"])
                 self.assertIsNone(state["pending_hazard"])
 
     def test_deadly_option_ends_the_game_with_ending_c(self):
@@ -156,17 +184,35 @@ class HazardTests(unittest.TestCase):
         self.assertEqual(state["status"], "ended")
         self.assertEqual(state["ending"], "C")
 
-    def test_second_trip_gives_second_hazard_then_route_is_safe(self):
+    def test_a_path_has_exactly_two_hazards_then_it_is_free(self):
         state = play(game.new_state(), "land:retail_row")
         state = play(state, "travel:polar_peak", "hazard:0")
-        self.assertEqual(state["used_hazards"], ["H7"])
-        state = play(state, "travel:retail_row", "hazard:0", "travel:polar_peak")
-        self.assertEqual(state["pending_hazard"], "H8")
-        # Going back to Retail Row triggers that POI's own second hazard (H4).
-        state = play(state, "hazard:1", "travel:retail_row", "hazard:0", "travel:polar_peak")
-        # H7 and H8 are used up: the trip to Polar Peak is now safe.
-        self.assertIsNone(state["pending_hazard"])
-        self.assertEqual(state["current_scene"], "polar_peak")
+        self.assertEqual(state["used_hazards"], ["H11"])
+        # the way back is the same path, so it gives the second hazard of that path
+        state = play(state, "travel:retail_row")
+        self.assertEqual(state["pending_hazard"], "H12")
+        state = play(state, "hazard:1")
+        self.assertEqual(state["current_scene"], "retail_row")
+        self.assertEqual(sorted(state["used_hazards"]), ["H11", "H12"])
+        # both hazards are used up: walking this path again is free, in both directions
+        for destination in ("polar_peak", "retail_row", "polar_peak"):
+            state = play(state, f"travel:{destination}")
+            self.assertIsNone(state["pending_hazard"])
+            self.assertEqual(state["current_scene"], destination)
+
+    def test_walking_one_path_again_and_again_never_uses_other_paths_hazards(self):
+        state = play(game.new_state(), "land:retail_row")
+        for _ in range(3):
+            for destination in ("polar_peak", "retail_row"):
+                state = play(state, f"travel:{destination}")
+                if state["pending_hazard"]:
+                    state = play(state, "hazard:0")
+        self.assertEqual(sorted(state["used_hazards"]), ["H11", "H12"])
+
+    def test_hazards_do_not_depend_on_the_direction(self):
+        forward = play(game.new_state(), "land:pleasant_park", "travel:tilted_towers")
+        backward = play(game.new_state(), "land:tilted_towers", "travel:pleasant_park")
+        self.assertEqual(forward["pending_hazard"], backward["pending_hazard"])
 
     def test_every_hazard_has_two_safe_options_and_one_deadly(self):
         for hazard_id, hazard in story.HAZARDS.items():
@@ -175,11 +221,13 @@ class HazardTests(unittest.TestCase):
                 self.assertEqual(len(hazard["options"]), 3)
                 self.assertEqual(len(deadly), 1)
 
-    def test_every_poi_has_two_hazards(self):
-        for poi in story.POIS:
-            orders = sorted(h["order"] for h in story.HAZARDS.values()
-                            if h["destination"] == poi)
-            self.assertEqual(orders, [1, 2], poi)
+    def test_every_path_has_exactly_two_hazards(self):
+        pairs = [(a, b) for i, a in enumerate(story.POIS) for b in story.POIS[i + 1:]]
+        self.assertEqual(len(pairs), 6)
+        for a, b in pairs:
+            orders = sorted(h["order"] for h in story.HAZARDS.values() if set(h["path"]) == {a, b})
+            self.assertEqual(orders, [1, 2], (a, b))
+        self.assertEqual(len(story.HAZARDS), 12)
 
     def test_other_actions_are_blocked_during_a_hazard(self):
         state = play(game.new_state(), "land:retail_row", "travel:polar_peak")
@@ -188,6 +236,15 @@ class HazardTests(unittest.TestCase):
             with self.subTest(action=action), self.assertRaises(game.ActionError):
                 game.apply_action(state, action)
         self.assertEqual(state, before)
+
+    def test_the_view_tells_the_page_which_hazard_is_ahead_on_each_path(self):
+        view = game.build_view(play(game.new_state(), "land:retail_row"))
+        self.assertEqual(view["ahead"], {"pleasant_park": "H2", "tilted_towers": "H3",
+                                         "polar_peak": "H11"})
+        state = play(game.new_state(), "land:retail_row", "travel:polar_peak", "hazard:0",
+                     "travel:retail_row", "hazard:0")
+        view = game.build_view(play(state))
+        self.assertIsNone(view["ahead"]["polar_peak"])   # that path is free now
 
 
 class EndingTests(unittest.TestCase):
@@ -200,24 +257,28 @@ class EndingTests(unittest.TestCase):
         state = play(state, "travel:retail_row", "hazard:0")
         if "impulse_grenades" in items:
             state = play(state, "collect:impulse_grenades")
-        state = play(state, "travel:polar_peak", "hazard:0", "decide:took_high_ground:yes", "storm")
+        state = play(state, "travel:polar_peak", "hazard:0", "decide:took_high_ground:yes")
         return state
 
-    def test_a5_good_ending_with_grenades(self):
-        state = play(self.good_run(["impulse_grenades"]), "search")
+    def search_in_storm(self, items):
+        return play(self.good_run(items), "storm", "search")
+
+    def test_a5_good_ending_needs_the_grenades_and_the_chug_jug(self):
+        state = self.search_in_storm(["impulse_grenades", "chug_jug"])
         self.assertEqual((state["status"], state["ending"]), ("ended", "A"))
 
-    def test_good_ending_with_both_items(self):
-        state = play(self.good_run(["impulse_grenades", "chug_jug"]), "search")
-        self.assertEqual(state["ending"], "A")
-
     def test_a5_bad_ending_with_only_chug_jug(self):
-        state = play(self.good_run(["chug_jug"]), "search")
+        state = self.search_in_storm(["chug_jug"])
         self.assertEqual((state["status"], state["ending"]), ("ended", "B"))
+
+    def test_grenades_without_chug_jug_cannot_enter_the_storm(self):
+        state = self.good_run(["impulse_grenades"])
+        self.assertNotIn("storm", ids(state))
 
     def test_bad_ending_when_one_right_decision_is_missing(self):
         state = play(game.new_state(), "land:pleasant_park", "decide:looted_house:no")
-        state = play(state, "travel:tilted_towers", "hazard:0", "decide:followed_tracks:yes")
+        state = play(state, "travel:tilted_towers", "hazard:0", "decide:followed_tracks:yes",
+                     "collect:chug_jug")
         state = play(state, "travel:retail_row", "hazard:0", "collect:impulse_grenades")
         state = play(state, "travel:polar_peak", "hazard:0", "decide:took_high_ground:yes",
                      "storm", "search")
@@ -227,26 +288,28 @@ class EndingTests(unittest.TestCase):
         state = play(game.new_state(), "decide:thanked_driver:no", "land:retail_row",
                      "decide:danced:no", "collect:impulse_grenades")
         state = play(state, "travel:pleasant_park", "hazard:0", "decide:looted_house:yes")
-        state = play(state, "travel:tilted_towers", "hazard:0", "decide:followed_tracks:yes")
+        state = play(state, "travel:tilted_towers", "hazard:0", "decide:followed_tracks:yes",
+                     "collect:chug_jug")
         state = play(state, "travel:polar_peak", "hazard:0", "decide:took_high_ground:yes",
                      "storm", "search")
         self.assertEqual(state["ending"], "A")
 
     def test_a5_nothing_changes_after_an_ending(self):
-        for state in (self.good_run(["chug_jug"]), at_polar_peak("travel:retail_row", "hazard:2")):
-            ended = play(state, "search") if state["status"] == "in_progress" else state
+        endings = (self.search_in_storm(["chug_jug"]),
+                   play(game.new_state(), "land:retail_row", "travel:polar_peak", "hazard:2"))
+        for ended in endings:
             self.assertEqual(ended["status"], "ended")
             self.assertEqual(game.get_actions(ended), [])
             before = copy.deepcopy(ended)
-            for action in ("search", "land:retail_row", "travel:retail_row", "storm"):
+            for action in ("search", "land:retail_row", "travel:retail_row", "storm", "storm_timeout"):
                 with self.subTest(action=action), self.assertRaises(game.ActionError):
                     game.apply_action(ended, action)
             self.assertEqual(ended, before)
 
     def test_all_three_endings_are_reachable(self):
         endings = {
-            play(self.good_run(["impulse_grenades"]), "search")["ending"],
-            play(self.good_run(["chug_jug"]), "search")["ending"],
+            self.search_in_storm(["impulse_grenades", "chug_jug"])["ending"],
+            self.search_in_storm(["chug_jug"])["ending"],
             play(game.new_state(), "land:retail_row", "travel:polar_peak", "hazard:2")["ending"],
         }
         self.assertEqual(endings, {"A", "B", "C"})
@@ -319,14 +382,15 @@ class StateValidationTests(unittest.TestCase):
             "inventory not a list": changed(inventory="chug_jug"),
             "bad decision value": broken_decisions,
             "bad hazard": changed(used_hazards=["H99"]),
-            "duplicate hazard": changed(used_hazards=["H7", "H7"]),
-            "hazard skipped order": changed(used_hazards=["H8"]),
+            "duplicate hazard": changed(used_hazards=["H11", "H11"]),
+            "hazard skipped order": changed(used_hazards=["H12"]),
             "ending while playing": changed(ending="A"),
             "ended without ending": changed(status="ended"),
             "pending hazard unknown": changed(pending_hazard="H99"),
-            "pending hazard on the bus": changed(current_scene="bus", pending_hazard="H1"),
-            "pending hazard already used": changed(used_hazards=["H7"], pending_hazard="H7"),
-            "pending hazard out of order": changed(pending_hazard="H8"),
+            "pending hazard on the bus": changed(current_scene="bus", pending_hazard="H11"),
+            "pending hazard already used": changed(used_hazards=["H11"], pending_hazard="H11"),
+            "pending hazard out of order": changed(pending_hazard="H12"),
+            "pending hazard of another path": changed(pending_hazard="H1"),
         }
         for name, broken in cases.items():
             with self.subTest(case=name), self.assertRaises(game.StateError):
@@ -338,7 +402,7 @@ class StateValidationTests(unittest.TestCase):
 class ViewTests(unittest.TestCase):
     def test_review_lists_decisions_and_hazards_after_an_ending(self):
         state = play(game.new_state(), "land:retail_row", "decide:danced:yes",
-                     "travel:polar_peak", "hazard:0", "travel:retail_row", "hazard:2")
+                     "travel:polar_peak", "hazard:0", "travel:pleasant_park", "hazard:2")
         view = game.build_view(state)
         self.assertEqual(view["ending"]["code"], "C")
         self.assertEqual(view["review"]["hazards_survived"], 1)

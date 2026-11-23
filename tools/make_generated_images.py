@@ -117,6 +117,26 @@ def make_trap_hazard():
     base.convert("RGB").save(IMG / "hazard_H1.jpg", quality=88, optimize=True)
 
 
+def make_avalanche_hazard():
+    """Hazard H10: a wall of snow thundering down Polar Peak."""
+    base = cover(load("scene_polar_peak.jpg", "RGB"), (W, H))
+    base = ImageEnhance.Brightness(base).enhance(0.92).convert("RGBA")
+    snow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(snow)
+    rng = random.Random(21)
+    for _ in range(26):
+        x, y = rng.randint(-100, W), rng.randint(120, H - 60)
+        r = rng.randint(70, 190)
+        d.ellipse((x - r, y - r // 2, x + r, y + r // 2), fill=(255, 255, 255, rng.randint(150, 235)))
+    d.polygon([(0, H), (0, 330), (W * 0.35, 250), (W * 0.7, 330), (W, 280), (W, H)], fill=(250, 253, 255, 235))
+    base.alpha_composite(snow.filter(ImageFilter.GaussianBlur(22)))
+    for _ in range(240):  # flying snow
+        x, y = rng.randint(0, W), rng.randint(0, H)
+        d2 = ImageDraw.Draw(base)
+        d2.ellipse((x, y, x + rng.randint(3, 8), y + rng.randint(3, 8)), fill=(255, 255, 255, 220))
+    base.convert("RGB").save(IMG / "hazard_H10.jpg", quality=88, optimize=True)
+
+
 # ---------- endings ----------
 
 def make_ending_a():
@@ -217,7 +237,7 @@ def make_favicon():
 
 
 if __name__ == "__main__":
-    for step in (make_bus_scene, make_storm_scene, make_trap_hazard, make_ending_a,
+    for step in (make_bus_scene, make_storm_scene, make_trap_hazard, make_avalanche_hazard, make_ending_a,
                  make_ending_b, make_ending_c, make_map, make_favicon):
         step()
         print("made", step.__name__)

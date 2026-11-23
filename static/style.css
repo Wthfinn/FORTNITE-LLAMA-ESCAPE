@@ -71,6 +71,14 @@ button.secondary { background: #3a2f80; box-shadow: inset -3px -3px 0 #2a2060, i
 .where { display: flex; flex-direction: column; min-width: 150px; }
 .where .label { font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; }
 .where strong { color: var(--yellow); font-size: 1.1rem; text-transform: uppercase; }
+.health { display: flex; align-items: center; gap: 8px; }
+.health .label { font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; }
+.health .bar { width: 160px; height: 16px; background: #1b1030; border: 3px solid #000; }
+.health .bar div { height: 100%; width: 100%; }
+.health .bar .ok { background: #4bd36b; }
+.health .bar .low { background: #ffb347; }
+.health .bar .critical { background: #ff4f5e; }
+.health strong { min-width: 2.5ch; }
 .inventory { list-style: none; margin: 0 0 0 auto; padding: 0; display: flex; gap: 10px; align-items: center; }
 .inventory li { display: flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.3); padding: 2px 8px 2px 4px; border: 2px solid #000; font-size: 0.8rem; }
 .inventory img { height: 32px; width: auto; }

@@ -21,7 +21,7 @@ Everything is played with the keyboard:
 
 | Key | What it does |
 |---|---|
-| Arrow keys or WASD | Walk |
+| Arrow keys or WASD | Walk (in the Battle Bus: choose where to drop) |
 | SPACE (or Enter, E) | Talk, use what you face, read a sign, close a message |
 | 1, 2, 3 | Choose an option in a menu or a danger card |
 | ESC | Close a menu |
@@ -29,13 +29,16 @@ Everything is played with the keyboard:
 
 1. Press **New game**. In the Battle Bus press the left and right arrows to pick where to land and SPACE to
    jump. (Press T to talk to the bus driver first if you like.)
-2. Walk around the town. Signposts show where each path leads (for example "RETAIL ROW"). Follow a path
-   to the next town. Halfway there, the yellow-black caution tiles start a danger with three options.
-   Pick the wrong one and you are eliminated. You can turn back before you reach the caution tiles.
+2. Walk around the town. Signposts show where each path leads (for example "RETAIL ROW"); press SPACE
+   next to a sign to read it. Follow a path to the next town. Each path has two dangers, one the first time
+   you walk it and one the second time. Look for hints on the ground (footprints, shell casings, scorch
+   marks). A danger has three options: pick the wrong one and you are eliminated. Once both dangers of a
+   path are survived, the path is free. You can turn back before you reach the middle of a path.
 3. Things that glow yellow and have a bouncing "!" (a door, the vending machine, the supply drop, tracks
    on the ground, the lookout) can be used. Stand next to one, and when "Press SPACE to interact"
    appears, press SPACE to decide or collect.
-4. Reach the Storm from Polar Peak (you need an item to survive it) and search for your Llama.
+4. Reach the Storm from Polar Peak and search for your Llama. You need the **Chug Jug** to enter, and the
+   storm takes 5 health every second, so be quick. If you run out of health you are eliminated.
 
 Your progress is saved in **your own browser** after every action. Close the page and come back later:
 press **Resume game**. Clearing your browser data deletes the save.
