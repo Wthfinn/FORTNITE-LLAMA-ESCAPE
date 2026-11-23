@@ -76,4 +76,5 @@ def api_action():
 
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    # Not port 5000: macOS uses it for AirPlay and answers with "403 Forbidden".
+    app.run(host="127.0.0.1", port=5057, debug=False)

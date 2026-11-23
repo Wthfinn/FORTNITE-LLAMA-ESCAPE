@@ -39,14 +39,24 @@ itself does not need Pillow.
 
 You need Python 3.9 or newer.
 
+**Easiest (Mac):** double-click `start.command` in the project folder. The first time it sets
+everything up, then it opens the game in your browser. Keep its window open while you play.
+(If macOS asks, right-click the file, choose Open, and confirm. In a terminal you can also run
+`./start.command`.)
+
+**By hand:**
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-flask --app app run
+python app.py
 ```
 
-Then open http://127.0.0.1:5000 in your browser.
+Then open http://127.0.0.1:5057 in your browser.
+
+Do not use port 5000 on a Mac: macOS uses it for AirPlay, and the browser shows "403 Forbidden"
+instead of the game.
 
 ## Run the tests
 
