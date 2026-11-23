@@ -1,6 +1,7 @@
 """Tests that every picture and sound the game uses really exists, and that the
 map data and views fit together."""
 
+import re
 import unittest
 from pathlib import Path
 
@@ -44,6 +45,38 @@ class AssetFileTests(unittest.TestCase):
         script = (STATIC / "game.js").read_text()
         for name in SOUNDS:
             self.assertIn(name, script)
+
+
+class AnimationAndWorldDataTests(unittest.TestCase):
+    """The pictures that are drawn in code (static/cutscenes.js, static/world.js)."""
+
+    def test_every_hazard_has_its_own_elimination_film(self):
+        films = (STATIC / "cutscenes.js").read_text()
+        for hazard_id in story.HAZARDS:
+            with self.subTest(hazard=hazard_id):
+                match = re.search(r"^  %s: \{ dur: ([0-9.]+), caption: \"(.+?)\"," % hazard_id, films, re.M)
+                self.assertIsNotNone(match, "no film for " + hazard_id)
+                self.assertTrue(3.0 <= float(match.group(1)) <= 6.0, "films are 3-6 seconds long")
+                self.assertGreater(len(match.group(2)), 15)
+
+    def test_every_path_has_two_or_three_side_stories(self):
+        world = (STATIC / "world.js").read_text()
+        block = world[world.index("const SIDE_STORIES"):world.index("// What lies on the path for each hazard")]
+        paths = re.findall(r'^  "([a-z_]+)\|([a-z_]+)": \[', block, re.M)
+        self.assertEqual({tuple(sorted(p)) for p in paths},
+                         {tuple(sorted(h["path"])) for h in story.HAZARDS.values()})
+        for left, right in paths:
+            start = block.index(f'"{left}|{right}"')
+            nxt = re.search(r'^  "[a-z_]+\|[a-z_]+": \[', block[start + 5:], re.M)
+            part = block[start:start + 5 + nxt.start()] if nxt else block[start:]
+            with self.subTest(path=f"{left}|{right}"):
+                self.assertIn(part.count("spot:"), (2, 3))
+
+    def test_the_football_shirts_have_the_right_numbers(self):
+        world = (STATIC / "world.js").read_text()
+        self.assertRegex(world, r'ronaldo: \{[^}]*number: "7"')
+        self.assertRegex(world, r'neymar: \{[^}]*number: "10"')
+        self.assertRegex(world, r'neuer: \{[^}]*number: "1"')
 
 
 class PixelArtFileTests(unittest.TestCase):

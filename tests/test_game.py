@@ -96,7 +96,34 @@ class LockedRouteTests(unittest.TestCase):
 
     def test_storm_entry_is_one_way(self):
         state = play(polar_peak_with_chug_jug(), "storm")
-        self.assertEqual(ids(state), {"search", "storm_timeout"})
+        self.assertEqual(ids(state), {"search", "storm_timeout", "use_chug_jug"})
+
+
+class ChugJugTests(unittest.TestCase):
+    def test_drinking_the_chug_jug_uses_it_up(self):
+        state = play(polar_peak_with_chug_jug(), "storm")
+        state = play(state, "use_chug_jug")
+        self.assertNotIn("chug_jug", state["inventory"])
+        self.assertEqual(state["current_scene"], "storm")
+        self.assertEqual(state["status"], "in_progress")
+
+    def test_the_chug_jug_can_only_be_drunk_once(self):
+        state = play(polar_peak_with_chug_jug(), "storm", "use_chug_jug")
+        before = copy.deepcopy(state)
+        with self.assertRaises(game.ActionError):
+            game.apply_action(state, "use_chug_jug")
+        self.assertEqual(state, before)
+
+    def test_the_chug_jug_cannot_be_drunk_outside_the_storm(self):
+        state = polar_peak_with_chug_jug()
+        before = copy.deepcopy(state)
+        with self.assertRaises(game.ActionError):
+            game.apply_action(state, "use_chug_jug")
+        self.assertEqual(state, before)
+
+    def test_drinking_it_does_not_change_the_ending(self):
+        state = play(polar_peak_with_chug_jug(), "storm", "use_chug_jug", "storm_timeout")
+        self.assertEqual(state["ending"], "C")
 
 
 class StormTimeoutTests(unittest.TestCase):
@@ -178,6 +205,21 @@ class HazardTests(unittest.TestCase):
                 self.assertEqual(state["current_scene"], "polar_peak")
                 self.assertEqual(state["used_hazards"], ["H11"])
                 self.assertIsNone(state["pending_hazard"])
+
+    def test_every_safe_option_has_its_own_survive_text(self):
+        for hazard_id, hazard in story.HAZARDS.items():
+            for number, option in enumerate(hazard["options"]):
+                with self.subTest(hazard=hazard_id, option=number):
+                    if option["deadly"]:
+                        self.assertNotIn("survive", option)
+                    else:
+                        self.assertGreater(len(option["survive"]), 20)
+
+    def test_a_safe_option_answers_with_the_text_that_fits_it(self):
+        for option in (0, 1):
+            state = play(game.new_state(), "land:retail_row", "travel:polar_peak")
+            _, message = game.apply_action(state, f"hazard:{option}")
+            self.assertEqual(message, story.HAZARDS["H11"]["options"][option]["survive"])
 
     def test_deadly_option_ends_the_game_with_ending_c(self):
         state = play(game.new_state(), "land:retail_row", "travel:polar_peak", "hazard:2")

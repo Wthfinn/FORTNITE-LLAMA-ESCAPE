@@ -419,3 +419,48 @@ the Storm. The remaining health is kept in the browser, so resuming in the storm
 - Pleasant Park has a half football pitch with three footballers who tell jokes.
 - Polar Peak has a big mountain with a winding path to the summit, and a referee at the storm gate.
 - Signs have sarcastic descriptions. Picking up the supply drop or using the vending machine plays a sound.
+
+---
+
+## 16. Changes made on 23 Nov (evening)
+
+These changes replace the older text where they differ.
+
+**Screens**
+- Title screen with a pixel picture (fish hero, runaway llama, Storm on the horizon), **New game** and
+  **Load game** (the saved game comes back with its place, items, decisions and used dangers).
+- Drop screen says "Where we droppin?" and each name sits above its picture. After the choice there is a
+  short film: the fish jumps out of the Battle Bus, the bus flies off into the clouds, the fish forgets
+  the parachute for a moment. Then the parachute landing as before.
+- Red pixel **X** in the corner of windows (supply drop, vending machine, note) instead of the ESC key.
+
+**World**
+- Signs only show their long description. Pulsing white arrows mark where one can walk on.
+- The danger waits at the *far end* of each path, so every side trail can be visited first, whichever way
+  one walks. Paths are walled in by trees, bricks or ice so the danger cannot be bypassed.
+- Each path has **2-3 side trails** with a funny character (Renegade Raider, Skull Trooper, Kim
+  Kardashian, Peely, Tomatohead, Raven, Jonesy, Meowscles, Cuddle Team Leader). No items, no game effect.
+- Supply drop and vending machine have a second option ("Save for a rainy day", "Save a penny...") that
+  gives nothing; the player can come back later. Collecting plays a short animation of the item flying into
+  a backpack.
+- Retail Row: the supermarket entrance glows like other things one can use. The supermarket has 12
+  shelves with groceries (no interactions).
+- Pleasant Park: a small full football pitch with the circle in the middle; Ronaldo (7), Neymar Jr. (10) and
+  Neuer (1) pass the ball; fruit trees; houses drawn after the reference pictures.
+- Polar Peak: the path up the mountain has stone steps and a rope.
+
+**Dangers**
+- Every safe option has its own message (`survive` in `story.py`, 24 texts). The server returns it.
+- Every deadly option plays a 3-6 second film with the fish (`static/cutscenes.js`, `DEATHS`), then the
+  elimination screen with the sounds.
+
+**The Storm (replaces the old "search")**
+- The Llama stands across a valley with a crumbled bridge. 100 health, **4 health per second** (25 seconds).
+- Three things to do while the health drops: read a handwritten note (pineapple on pizza; no value), talk
+  to a sunbather (no value), or use an Impulse Grenade at the edge of the valley to jump across.
+- Using the grenade sends the server action `search` (unchanged): the server decides Ending A or B. A: hug,
+  second grenade, jump out of the storm, victory screen. B (grenades but not all three right decisions):
+  hug, but nowhere to go. Without grenades the edge only shows a hint and the player keeps looking.
+- At 20 health the page offers the Chug Jug: new server action `use_chug_jug` (only in the Storm, removes
+  the item from the inventory); the page adds 50 health. The remaining health is still kept in the browser.
+- Reading the note or talking keeps the health dropping; menus, films and the Chug Jug offer pause it.

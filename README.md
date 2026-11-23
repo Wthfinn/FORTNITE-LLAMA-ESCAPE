@@ -24,32 +24,40 @@ Everything is played with the keyboard:
 | Arrow keys or WASD | Walk (in the Battle Bus: choose where to drop) |
 | SPACE (or Enter, E) | Talk, use what you face, read a sign, close a message |
 | 1, 2, 3 | Choose an option in a menu or a danger card |
-| ESC | Close a menu |
+| Red X (click it) | Close a window (supply drop, vending machine, a note) |
 | M | Sound on or off |
 
-1. Press **New game**. In the Battle Bus press the left and right arrows to pick where to land and SPACE to
-   jump. (Press T to talk to the bus driver first if you like.)
-2. Walk around the town. Signposts show where each path leads (for example "RETAIL ROW"); press SPACE
-   next to a sign to read it. Follow a path to the next town. Each path has two dangers, one the first time
-   you walk it and one the second time. Look for hints on the ground (footprints, shell casings, scorch
-   marks). A danger has three options: pick the wrong one and you are eliminated. Once both dangers of a
-   path are survived, the path is free. You can turn back before you reach the middle of a path.
+1. Press **New game** (or **Load game** to continue). In the Battle Bus press the arrow keys to pick where
+   to land ("Where we droppin?") and SPACE to jump. (Press T to talk to the bus driver first if you like.)
+2. Walk around the town. A pulsing white arrow at the edge of the screen shows where one can walk on to the
+   next town. Press SPACE next to a wooden sign to read its description. Each path has two dangers, one
+   the first time you walk it and one the second time, waiting at the far end of the path. Look for hints
+   on the ground (footprints, shell casings, scorch marks). A danger has three options: two are safe (and
+   come with a short message that fits the danger), one eliminates you (with a short film). Once both
+   dangers of a path are survived, the path is free. On every path you can also stray onto small side
+   trails to meet characters from the Fortnite universe. They are only for fun: no items.
 3. Things that glow yellow and have a bouncing "!" (a door, the vending machine, the supply drop, tracks
    on the ground, the lookout) can be used. Stand next to one, and when "Press SPACE to interact"
-   appears, press SPACE to decide or collect.
-4. Reach the Storm from Polar Peak and search for your Llama. You need the **Chug Jug** to enter, and the
-   storm takes 5 health every second, so be quick. If you run out of health you are eliminated.
+   appears, press SPACE to decide or collect. The supply drop and the vending machine also offer a second
+   option: do nothing now (you can come back later).
+4. Reach the Storm from Polar Peak and get to your Llama. You need the **Chug Jug** to enter. The storm takes
+   4 health every second (100 health = 25 seconds). Your Llama stands on the far side of a valley whose
+   bridge has crumbled. You can read a note, talk to a sunbather, or use an **Impulse Grenade** at the
+   edge of the valley to jump across. At 20 health the game offers you the Chug Jug (+50 health). If you
+   run out of health you are eliminated.
 
 Your progress is saved in **your own browser** after every action. Close the page and come back later:
-press **Resume game**. Clearing your browser data deletes the save.
+press **Load game**. Clearing your browser data deletes the save.
 
 ## Pictures and sound
 
 The pictures and sounds come from the team's own asset pack (Fortnite artwork belongs to Epic Games and
 is only used here for a university project). They are in `static/img/` and `static/audio/`.
 
-- The walking world (grass, paths, houses, trees, signs, snow, the pink storm fog and the player) is
+- The walking world (grass, paths, houses, trees, signs, snow, the purple storm and the characters) is
   drawn in code in `static/world.js`, as 16x16 pixel tiles.
+- The title picture, the jump out of the Battle Bus, the 12 elimination films and the jump out of the storm
+  are drawn in code in `static/cutscenes.js`.
 - The danger cards, ending pictures and item sprites are pixel versions of the pack's pictures
   (`static/img/px/`), made by `tools/make_pixel_art.py`.
 - A few pictures the pack did not contain (trap, endings, Storm) are composed from the pack's pictures

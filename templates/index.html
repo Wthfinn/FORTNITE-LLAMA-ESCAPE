@@ -18,11 +18,11 @@
     </header>
 
     <section id="start" class="panel" hidden>
-      <img class="title" src="{{ url_for('static', filename='img/player_portrait.jpg') }}" alt="Your Fortnite character">
+      <canvas id="title-canvas" class="title-canvas" width="960" height="576" aria-label="Fortnite Llama Escape: your fish hero waves next to the runaway llama, in a sunset landscape with the Storm on the horizon."></canvas>
       <p id="start-note"></p>
       <div class="row">
-        <button id="resume-btn" type="button" hidden>Resume game</button>
         <button id="new-btn" type="button">New game</button>
+        <button id="resume-btn" type="button">Load game</button>
       </div>
       <p class="help">Walk with the arrow keys or WASD. Press SPACE to talk, use things and read signs. Press 1, 2 or 3 to choose.</p>
     </section>
@@ -50,6 +50,7 @@
     <div id="modal" hidden><div id="modal-panel" class="panel"></div></div>
   </main>
   <script src="{{ url_for('static', filename='world.js', v=asset_version) }}"></script>
+  <script src="{{ url_for('static', filename='cutscenes.js', v=asset_version) }}"></script>
   <script src="{{ url_for('static', filename='game.js', v=asset_version) }}"></script>
 </body>
 </html>

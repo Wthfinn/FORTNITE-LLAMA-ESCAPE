@@ -144,6 +144,8 @@ def get_actions(state):
             actions.append({"id": "storm", "label": "Enter the Storm"})
     elif scene == "storm":
         actions.append({"id": "search", "label": "Search for the Llama"})
+        if "chug_jug" in state["inventory"]:
+            actions.append({"id": "use_chug_jug", "label": "Drink the Chug Jug"})
         # sent by the page when the storm has used up all the player's health
         actions.append({"id": "storm_timeout", "label": "Let the storm take you"})
 
@@ -199,14 +201,16 @@ def apply_action(state, action_id):
         hazard_id = new["pending_hazard"]
         hazard = story.HAZARDS[hazard_id]
         new["pending_hazard"] = None
-        if hazard["options"][int(rest)]["deadly"]:
+        option = hazard["options"][int(rest)]
+        if option["deadly"]:
             new["status"] = "ended"
             new["ending"] = "C"
             return new, story.ENDINGS["C"]["text"]
         new["used_hazards"].append(hazard_id)
         destination = other_end(hazard["path"], new["current_scene"])
         new["current_scene"] = destination
-        return new, f"You made it. You arrive at {story.SCENES[destination]['name']}."
+        # the text that fits this exact option (the page shows it, then arrives)
+        return new, option["survive"]
 
     if kind == "collect":
         new["inventory"].append(rest)
@@ -220,6 +224,10 @@ def apply_action(state, action_id):
     if kind == "storm":
         new["current_scene"] = "storm"
         return new, "You take a deep breath and step into the Storm."
+
+    if action_id == "use_chug_jug":
+        new["inventory"].remove("chug_jug")      # drunk: the page gives the health back
+        return new, "You chug the Chug Jug. Glug, glug, glug. You feel much better."
 
     if action_id == "storm_timeout":
         new["status"] = "ended"

@@ -33,11 +33,13 @@ update it when the team changes the design.
   project page: https://2477-introduction-programming.gitlab.io/wiki/team-project/
 - **Saving:** in the player's browser (localStorage). The server keeps no player data and has no secrets.
 - **Structure:** `story.py` (content as data), `game.py` (rules), `app.py` (web server),
-  `static/world.js` (the pixel-art world), `static/game.js` (keyboard, drawing, menus),
+  `static/world.js` (the pixel-art world), `static/cutscenes.js` (title picture and little films),
+  `static/game.js` (keyboard, drawing, menus),
   `templates/` and `static/` (page), `tests/` (unittest). See README.md.
 - **Hazards belong to the 6 paths between the places: 2 per path, 12 in total.** Only the Chug Jug opens
-  the storm; the Impulse Grenades are needed for the good ending. In the storm the player loses 5 health
-  per second and is eliminated at 0 (server action `storm_timeout`). Details: `concept.md` section 15.
+  the storm; the Impulse Grenades are needed for the good ending. In the storm the player loses 4 health
+  per second (25 seconds) and is eliminated at 0 (server action `storm_timeout`); the Chug Jug can be drunk
+  once in the storm (server action `use_chug_jug`, +50 health in the page). Details: `concept.md` sections 15 and 16.
 - **Run the tests:** `python -m unittest discover -s tests -t .` (the `.venv` also works)
 - Flavour decisions D1 and D4 stay. Entering the Storm is one-way. Blocked actions are hidden until
   available. Hazard options keep the same order on screen.

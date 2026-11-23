@@ -64,6 +64,10 @@ button.secondary { background: #3a2f80; box-shadow: inset -3px -3px 0 #2a2060, i
 .help, .hint { opacity: 0.85; font-size: 0.85rem; }
 
 .title { width: 100%; max-width: 672px; margin: 0 auto; border: 4px solid #000; }
+.title-canvas { display: block; width: 100%; height: auto; border: 4px solid #000; image-rendering: pixelated; image-rendering: crisp-edges; background: #241a6a; }
+button:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.7); }
+button:disabled:hover { filter: grayscale(0.7); }
+button:disabled:active { transform: none; }
 
 /* ----- the game screen ----- */
 #hud { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; padding: 8px 12px; background: var(--panel); border: 4px solid #000; }
@@ -83,6 +87,8 @@ button.secondary { background: #3a2f80; box-shadow: inset -3px -3px 0 #2a2060, i
 .inventory li { display: flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.3); padding: 2px 8px 2px 4px; border: 2px solid #000; font-size: 0.8rem; }
 .inventory img { height: 32px; width: auto; }
 .inventory .empty { opacity: 0.6; padding-left: 8px; }
+.inventory li.pop { animation: pop 0.7s steps(7); background: rgba(255, 210, 63, 0.45); }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
 
 .screen { position: relative; margin-top: 8px; border: 4px solid #000; box-shadow: 0 0 0 4px var(--edge); background: #000; }
 #screen { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
@@ -103,11 +109,38 @@ button.secondary { background: #3a2f80; box-shadow: inset -3px -3px 0 #2a2060, i
 
 /* ----- pop-up windows: choices, danger cards, endings ----- */
 #modal { position: fixed; inset: 0; background: rgba(8, 4, 24, 0.78); display: flex; align-items: center; justify-content: center; padding: 14px; z-index: 10; overflow-y: auto; }
-#modal-panel { width: min(640px, 100%); margin: 0; display: flex; flex-direction: column; gap: 10px; }
+#modal-panel { position: relative; width: min(640px, 100%); margin: 0; display: flex; flex-direction: column; gap: 10px; }
 #modal-panel img.pixel { width: 100%; border: 4px solid #000; }
 #modal-panel img.victory { width: 62%; margin: 0 auto; border: 0; }
 #modal-panel .question { margin: 4px 0; font-size: 1.1rem; }
 #modal-panel .cancel { margin: 0; font-size: 0.75rem; opacity: 0.7; }
+#modal-panel.menu .question, #modal-panel.note .question { padding-right: 46px; }
+
+/* the red pixel X that closes a window */
+.close-x {
+  position: absolute; top: 8px; right: 8px; width: 38px; height: 38px; padding: 0;
+  background: #e0243a; border: 3px solid #000;
+  box-shadow: inset -3px -3px 0 #a01428, inset 3px 3px 0 #ff6a7a;
+}
+.close-x::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -10px 0 0 -10px; background: #fff;
+  box-shadow: 16px 0 0 #fff, 4px 4px 0 #fff, 12px 4px 0 #fff, 8px 8px 0 #fff, 4px 12px 0 #fff, 12px 12px 0 #fff, 0 16px 0 #fff, 16px 16px 0 #fff;
+}
+
+/* the handwritten note in the storm */
+.note-paper {
+  background: #fff6c8; color: #2a2a55; padding: 22px 24px; border: 3px solid #b8a35a;
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.55); transform: rotate(-1deg);
+  font-family: "Bradley Hand", "Segoe Script", "Comic Sans MS", "Marker Felt", cursive; font-weight: normal;
+  font-size: 1.3rem; line-height: 1.55;
+}
+.note-paper p { margin: 0 0 12px; }
+.note-paper .note-head { font-size: 1.6rem; font-weight: bold; text-decoration: underline wavy #c0392b; }
+.note-paper p:last-child { margin: 0; font-size: 1rem; text-align: right; opacity: 0.8; }
+
+#modal-panel.chug { border-color: var(--green); }
+#modal-panel.chug h2 { color: var(--green); text-align: center; margin: 0; }
+#modal-panel img.chug { width: 64px; margin: 0 auto; border: 0; }
 #modal-panel .review { margin: 0; padding-left: 18px; font-size: 0.85rem; }
 #modal-panel .code { margin: 0; text-align: center; color: var(--yellow); letter-spacing: 4px; }
 #modal-panel.hazard { border-color: var(--red); animation: flash 0.8s steps(2) infinite; }
@@ -120,6 +153,6 @@ button.danger-option { background: #ff8a3d; box-shadow: inset -3px -3px 0 #c4601
 @keyframes flash { 50% { border-color: #ffd23f; } }
 
 @media (prefers-reduced-motion: reduce) {
-  #modal-panel.hazard, #dialog .more { animation: none; }
+  #modal-panel.hazard, #dialog .more, .inventory li.pop { animation: none; }
   #fade { transition: none; }
 }

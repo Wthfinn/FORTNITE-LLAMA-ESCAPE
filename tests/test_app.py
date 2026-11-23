@@ -84,9 +84,11 @@ class WebTests(unittest.TestCase):
 class PageTests(unittest.TestCase):
     def test_page_loads_world_before_game_script_with_cache_busting(self):
         html = app_module.app.test_client().get("/").get_data(as_text=True)
-        self.assertLess(html.index("world.js"), html.index("game.js"))
+        self.assertLess(html.index("world.js"), html.index("cutscenes.js"))
+        self.assertLess(html.index("cutscenes.js"), html.index("game.js"))
         self.assertIn("?v=", html)
-        for element_id in ('id="screen"', 'id="modal"', 'id="dialog"', 'id="hud"'):
+        for element_id in ('id="screen"', 'id="modal"', 'id="dialog"', 'id="hud"',
+                           'id="title-canvas"', 'id="new-btn"', 'id="resume-btn"'):
             self.assertIn(element_id, html)
 
 

@@ -15,12 +15,19 @@ const SCALE = 3;
 const VIEW_W = COLS * T;   // 320
 const VIEW_H = ROWS * T;   // 192
 const STEP_MS = 130;
-const STORM_DAMAGE_PER_SECOND = 5;
+const STORM_DAMAGE_PER_SECOND = 4;   // 100 health lasts 25 seconds in the storm
+const CHUG_AT = 20;                  // the page offers the Chug Jug when health drops this low
+const CHUG_HEAL = 50;
 const AUTO_ADVANCE_MS = 30000;   // the bus screen waits this long (or until a click)
 const BUS_READY_TEXT = "It's time to drop! Get ready to loot up, fight other players and bring your llama home.";
 
 const canvas = $("screen");
 const ctx = canvas.getContext("2d");
+const titleCanvas = $("title-canvas");
+const titleCtx = titleCanvas.getContext("2d");
+const titleBase = document.createElement("canvas");
+titleBase.width = VIEW_W; titleBase.height = VIEW_H;
+const tb = titleBase.getContext("2d");
 const base = document.createElement("canvas");
 base.width = VIEW_W; base.height = VIEW_H;
 const b = base.getContext("2d");
@@ -48,22 +55,27 @@ let caption = "";          // text box that shows without blocking (during the d
 const visited = new Set(); // places whose description was already shown
 const held = [];           // arrow keys currently held, last one wins
 const player = { tx: 0, ty: 0, fx: 0, fy: 0, last: [0, 0], dir: "down", moving: false, prog: 0, step: 0 };
-const bus = { phase: "intro", t0: 0, sel: 0, jumping: false, jt: 0 };
+const bus = { phase: "intro", t0: 0, sel: 0, jumping: false, jt: 0 };   // jt: seconds since the jump started
 const landing = { active: false, t: 0, dur: 1900 };    // the player floats down on a parachute
 const drop = { active: false, t: 0, dur: 3400 };       // the supply drop floats down (first visit only)
 const dance = { active: false, t: 0, dur: 7000 };
+const cutscene = { active: false, t: 0, def: null, onDone: null };   // an elimination film
+const itemFly = { active: false, t: 0, dur: 1700, sprite: null, from: null };   // an item flies into the backpack
+const finale = { phase: null, t: 0, result: null };   // the jump over the valley (and out of the storm)
 const talkCount = new Map();   // which line each character says next
+let chugAsked = false;         // the Chug Jug offer is shown once per drop below 20 health
+let hudPop = null;             // the item that just landed in the backpack (its icon pops)
 let health = 100;              // only goes down inside the storm
 let extras = { tiltedSeen: false, health: 100 };
 let lastExtrasSave = 0;
 
+const DROP_TOP = 24, DROP_ROW = 86;     // where the four location pictures sit on the drop screen
 const BUS_ZONES = [
   { id: "pleasant_park", name: "PLEASANT PARK" },
   { id: "tilted_towers", name: "TILTED TOWERS" },
   { id: "polar_peak", name: "POLAR PEAK" },
   { id: "retail_row", name: "RETAIL ROW" },
 ];
-const NPC_NAMES = { jonesy: "Footballer", bear: "Footballer", raven: "Goalkeeper", referee: "Referee", cashier: "Cashier" };
 const DIRS = {
   ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down",
   ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
@@ -217,11 +229,12 @@ function pxImage(file) {
 function showStart(note) {
   const saved = readSave();
   $("start-note").textContent = note ||
-    (saved ? "You have a saved game." : "Your Llama ran away. Ready to find it?");
-  $("resume-btn").hidden = !saved;
+    (saved ? "Welcome back! Load your game, or start a new one." : "Your Llama ran away. Ready to find it?");
+  $("resume-btn").disabled = !saved;
+  $("resume-btn").title = saved ? "" : "There is no saved game yet";
   $("start").hidden = false;
   $("stage").hidden = true;
-  $("new-btn").focus();
+  (saved ? $("resume-btn") : $("new-btn")).focus();
 }
 
 function placeName() {
@@ -235,18 +248,20 @@ function updateHud() {
   if (!view) return;
   $("place").textContent = placeName();
   const list = $("inventory");
-  list.replaceChildren();
-  if (!view.inventory.length) list.appendChild(el("li", "empty", "no items"));
-  view.inventory.forEach((item) => {
-    const li = el("li");
-    const icon = el("img", "pixel");
-    icon.src = IMG + "px/" + item.icon;
-    icon.alt = "";
-    li.appendChild(icon);
-    li.appendChild(el("span", "", item.name));
-    list.appendChild(li);
-  });
-  let hint = "Arrows / WASD walk · SPACE talk, use, next · 1 2 3 choose · M sound";
+  if (!itemFly.active) {                       // while an item flies into the backpack the list waits
+    list.replaceChildren();
+    if (!view.inventory.length) list.appendChild(el("li", "empty", "no items"));
+    view.inventory.forEach((item) => {
+      const li = el("li", item.name === hudPop ? "pop" : "");
+      const icon = el("img", "pixel");
+      icon.src = IMG + "px/" + item.icon;
+      icon.alt = "";
+      li.appendChild(icon);
+      li.appendChild(el("span", "", item.name));
+      list.appendChild(li);
+    });
+  }
+  let hint = "Arrows / WASD walk · SPACE talk, use, next · 1 2 3 choose · click the red X to close · M sound";
   if (scene === "bus") {
     hint = bus.phase === "select"
       ? "Arrow keys choose where to drop · SPACE jump · T talk to the bus driver · M sound"
@@ -266,12 +281,13 @@ function updateHealthBar() {
 
 // ---------- dialog box (bottom of the screen) ----------
 
-function showDialog(text, onClose) {
+// live: the storm keeps hurting while this message is open (talking is a choice in the storm)
+function showDialog(text, onClose, live) {
   if (!text) {
     if (onClose) onClose();
     return;
   }
-  dialogQueue.push({ text, onClose });
+  dialogQueue.push({ text, onClose, live: Boolean(live) });
   if (!dialogOpen) nextDialog();
 }
 
@@ -327,8 +343,19 @@ function addOption(panel, label, fn, className) {
   return button;
 }
 
-function openChoiceMenu(title, choices) {
+// The red X in the corner of a window closes it (instead of the ESC key).
+function addCloseX(panel) {
+  const x = el("button", "close-x");
+  x.type = "button";
+  x.setAttribute("aria-label", "Close");
+  x.addEventListener("click", closeModal);
+  panel.appendChild(x);
+}
+
+// choices: server actions ({id, label}); extra: choices that only show a message ({label, text})
+function openChoiceMenu(title, choices, extra) {
   const panel = openModal("menu");
+  addCloseX(panel);
   panel.appendChild(el("p", "question", title));
   choices.forEach((choice) => {
     addOption(panel, choice.label, () => {
@@ -336,7 +363,45 @@ function openChoiceMenu(title, choices) {
       perform(choice.id);
     });
   });
-  panel.appendChild(el("p", "cancel", "ESC: not now"));
+  (extra || []).forEach((choice) => {
+    addOption(panel, choice.label, () => {
+      closeModal();
+      showDialog(choice.text);
+    }, "secondary");
+  });
+}
+
+const NOTE_LINES = [
+  "PINEAPPLE DOES NOT BELONG ON PIZZA.",
+  "1. Fruit has no business being hot. This is a pizza, not a smoothie.",
+  "2. It makes the cheese cry. I HEARD it. It was awful.",
+  "3. If I wanted sweet I'd order dessert. Or fight a Cuddle Team Leader.",
+  "(signed: somebody who has seen things, and is also quite hungry)",
+];
+
+// A close-up of the handwritten note. The storm keeps hurting while it is open.
+function showNote() {
+  const panel = openModal("note");
+  addCloseX(panel);
+  panel.appendChild(el("p", "question", "A note, pinned to a dead tree:"));
+  const paper = el("div", "note-paper");
+  NOTE_LINES.forEach((line, i) => paper.appendChild(el("p", i === 0 ? "note-head" : "", line)));
+  panel.appendChild(paper);
+}
+
+function showChugPrompt() {
+  chugAsked = true;
+  const panel = openModal("chug");
+  panel.appendChild(el("h2", "", "Low health!"));
+  const icon = el("img", "pixel chug");
+  icon.src = IMG + "px/item_chug_jug.png";
+  icon.alt = "";
+  panel.appendChild(icon);
+  panel.appendChild(el("p", "question", "The storm is chewing through your health. Drink the Chug Jug for +" + CHUG_HEAL + " health?"));
+  addOption(panel, "Drink the Chug Jug (+" + CHUG_HEAL + " health)", () => {
+    closeModal();
+    perform("use_chug_jug");
+  }, "danger-option");
 }
 
 function showHazard(v) {
@@ -397,7 +462,7 @@ function askStartOver() {
 function layoutScene(def, decorArg) {
   grid = def.build ? def.build() : decorArg;
   lc.clearRect(0, 0, VIEW_W, VIEW_H);
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) drawTile(lc, grid[y][x], x, y, def.pal);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) drawTile(lc, grid[y][x], x, y, def.palAt ? def.palAt(x) : def.pal);
   if (def.decor) def.decor(lc);
 }
 
@@ -418,12 +483,11 @@ function enterScene(id, fromId, opts) {
     return;
   }
   town = TOWNS[id];
+  layoutScene(town);
   if (id === "storm") {
-    grid = town.build();
     health = opts.resume ? extras.health : 100;
+    chugAsked = false;
     if (!opts.resume) saveExtras();
-  } else {
-    layoutScene(town);
   }
   const arrival = fromId && town.exits.find((e) => e.dest === fromId);
   const [sx, sy] = opts.spawn || (arrival ? arrival.spawn : town.spawn);
@@ -461,9 +525,9 @@ function enterPath(fromId, toId) {
   const def = pathDefinition(fromId, toId, hazardId);
   scene = "path";
   path = { left: def.left, right: def.right, from: fromId, to: toId, def };
-  town = { pal: def.pal, exits: [], signs: def.signs, objects: [], storm: null };
-  layoutScene({ pal: def.pal, build: null }, def.grid);
-  if (def.decal) drawHazardDecal(lc, def.decal, sprites);
+  town = { pal: def.pal, exits: [], signs: def.signs, objects: def.objects, storm: null };
+  layoutScene({ pal: def.pal, palAt: def.palAt, build: null, decor: def.decor }, def.grid);
+  if (def.decal) drawHazardDecal(lc, def.decal, sprites, def.decalAt);
   const [sx, sy] = def.ends[fromId].spawn;
   placePlayer(sx, sy, fromId === def.left ? "right" : "left");
   landing.active = false; drop.active = false;
@@ -522,7 +586,10 @@ async function perform(actionId, onReject, rejectText) {
     state = result.data.state;
     writeSave(state);                // saved after every accepted action
     view = result.data.view;
-    soundsFor(before, view);
+    // the elimination films and the jump out of the storm play first; their sounds come after
+    const film = view.status === "ended" &&
+      ((actionId.startsWith("hazard:") && before && before.hazard && DEATHS[before.hazard.id]) || actionId === "search");
+    if (!film) soundsFor(before, view);
     afterAction(actionId, before, fromScene);
   } else {
     if (result.data.view) view = result.data.view;
@@ -533,9 +600,34 @@ async function perform(actionId, onReject, rejectText) {
 }
 
 function afterAction(actionId, before, fromScene) {
-  if (actionId.startsWith("collect:")) play("open");
+  if (actionId.startsWith("collect:")) {
+    play("open");
+    startItemFly(actionId.split(":")[1], () => { if (view.message) showDialog(view.message); });
+    return;
+  }
+  if (actionId === "use_chug_jug") {
+    health = Math.min(100, health + CHUG_HEAL);
+    chugAsked = false;
+    saveExtras();
+    updateHealthBar();
+    play("open", 1500);
+    showDialog("Glug, glug, glug! Your health goes up by " + CHUG_HEAL + ". The Chug Jug is empty now.", null, true);
+    return;
+  }
   if (view.status === "ended") {
-    showEnding(view);
+    resetDialogs();
+    closeModal();
+    if (actionId === "search") {                                  // the jump over the valley
+      playFinale(before);
+    } else if (actionId.startsWith("hazard:") && before && before.hazard && DEATHS[before.hazard.id]) {
+      startCutscene(DEATHS[before.hazard.id], () => { soundsFor(before, view); showEnding(view); });
+    } else {
+      showEnding(view);
+    }
+    return;
+  }
+  if (actionId.startsWith("hazard:")) {                           // a safe choice: say what happened, then arrive
+    showDialog(view.message, () => transition(() => enterScene(view.scene_id, fromScene)));
     return;
   }
   if (view.hazard) {
@@ -552,6 +644,74 @@ function afterAction(actionId, before, fromScene) {
     return;
   }
   if (view.message) showDialog(view.message);
+}
+
+// ---------- the little films ----------
+
+function startCutscene(def, onDone) {
+  resetDialogs();
+  closeModal();
+  cutscene.active = true;
+  cutscene.t = 0;
+  cutscene.def = def;
+  cutscene.onDone = onDone;
+  sounds.music.pause();
+}
+
+function endCutscene() {
+  const done = cutscene.onDone;
+  cutscene.active = false;
+  cutscene.onDone = null;
+  cutscene.def = null;
+  if (done) done();
+}
+
+// An item pops out of the machine, flies to the player and is tucked into the backpack.
+function startItemFly(key, done) {
+  const obj = town.objects.find((o) => o.kind === "collect" && o.key === key);
+  itemFly.active = true;
+  itemFly.t = 0;
+  itemFly.sprite = sprites["item_" + key];
+  itemFly.from = { x: (obj ? obj.x : player.tx) * T + 8, y: (obj ? obj.y : player.ty) * T + 6 };
+  itemFly.done = done;
+  itemFly.name = view.inventory.length ? view.inventory[view.inventory.length - 1].name : null;
+}
+
+function endItemFly() {
+  itemFly.active = false;
+  hudPop = itemFly.name;
+  updateHud();
+  setTimeout(() => { hudPop = null; }, 1200);
+  if (itemFly.done) itemFly.done();
+}
+
+const HUG_GOOD = "You land right next to your Llama and give it the biggest hug of your life. It makes a noise a llama really should not be able to make. \"Time to go home,\" you whisper, and you pull out another Impulse Grenade.";
+const HUG_BAD = "You land next to your Llama and hug it. Then it hits you: you have no idea where the safe zone is. The last Impulse Grenade would only throw you deeper into the purple fog.";
+
+// The jump over the valley, the hug, and (with the right choices) the jump out of the storm.
+function playFinale(before) {
+  finale.phase = "jump";
+  finale.t = 0;
+  finale.before = before;
+  finale.from = { x: player.tx, y: player.ty };
+  finale.to = { x: 15, y: 5 };
+  held.length = 0;
+}
+
+function finaleHug() {
+  finale.phase = "hug";
+  placePlayer(finale.to.x, finale.to.y, "right");
+  const good = view.ending.code === "A";
+  showDialog(good ? HUG_GOOD : HUG_BAD, () => {
+    finale.phase = null;
+    if (good) {
+      startCutscene({ dur: 3.8, caption: "", draw: (c, t) => drawStormEscape(c, t, sprites) },
+        () => { soundsFor(finale.before, view); showEnding(view); });
+    } else {
+      soundsFor(finale.before, view);
+      showEnding(view);
+    }
+  });
 }
 
 // The player's 7 second dance with the disco fever music.
@@ -597,6 +757,8 @@ function interact() {
     if (bus.phase === "select" && !bus.jumping) {
       bus.jumping = true;
       bus.jt = 0;
+    } else if (bus.jumping && bus.jt > 1.5) {
+      bus.jt = BUS_JUMP_SECONDS;               // skip the rest of the film
     }
     return;
   }
@@ -604,26 +766,62 @@ function interact() {
   const target = nearbyTarget();
   if (!target) return;
   if (target.kind === "sign") {
-    showDialog('The sign says: "' + target.sign.text + '"');
-    if (target.sign.desc) showDialog(target.sign.desc);
+    showDialog(target.sign.desc || target.sign.text);           // only the long description
   } else {
     useObject(target.obj);
   }
 }
 
+// What the machines offer besides taking the item.
+const OTHER_OPTION = {
+  chug_jug: {
+    ask: "A supply drop! What do you do?",
+    label: "Save for a rainy day",
+    text: "You decide to save the supply drop for a rainy day. It will still be here when you come back. (Psst: the storm is basically one giant rainy day.)",
+  },
+  impulse_grenades: {
+    ask: "A vending machine, humming quietly. What do you do?",
+    label: "Save a penny. Everything is so expensive these days.",
+    text: "You keep your penny. The machine's screen flashes: 'IMPULSE GRENADES: 1 PENNY* (*plus tax, plus service fee, plus a mandatory subscription)'. You walk away richer by exactly one penny. Congratulations.",
+  },
+};
+
+function useEdge() {
+  if (!state.inventory.includes("impulse_grenades")) {
+    showDialog("Your Llama is right there, across the valley! But the bridge has crumbled and the gap is huge. If only you had something that could launch you across...", null, true);
+    return;
+  }
+  const choices = view.choices.filter((c) => c.id === "search");
+  if (choices.length) openChoiceMenu("Throw an Impulse Grenade at your feet and launch yourself across the valley?", [{ id: "search", label: "Throw the Impulse Grenade (jump!)" }]);
+}
+
 function useObject(o) {
+  const inStorm = scene === "storm";
   if (o.kind === "npc") {
     let lines = o.lines;
     if (o.referee && state.inventory.includes("chug_jug")) lines = o.linesWithJug;
     const n = talkCount.get(o) || 0;
     talkCount.set(o, n + 1);
-    showDialog(NPC_NAMES[o.style] + ": " + lines[n % lines.length]);
+    showDialog((o.name || "") + ": " + lines[n % lines.length], null, inStorm);
+    return;
+  }
+  if (o.kind === "note") {
+    showNote();
+    return;
+  }
+  if (o.kind === "edge") {
+    useEdge();
     return;
   }
   const id = o.kind === "search" ? "search" : o.kind === "collect" ? "collect:" + o.key : "decide:" + o.key + ":";
   const choices = view.choices.filter((c) => (o.kind === "decide" ? c.id.startsWith(id) : c.id === id));
   if (!choices.length) {
     showDialog(o.kind === "collect" ? "It is empty. You already took what was inside." : "You have already decided here.");
+    return;
+  }
+  const other = o.kind === "collect" ? OTHER_OPTION[o.key] : null;
+  if (other) {
+    openChoiceMenu(other.ask, choices, [{ label: other.label, text: other.text }]);
     return;
   }
   openChoiceMenu(choices[0].question || choices[0].label, choices);
@@ -766,19 +964,39 @@ function pixelEllipse(c, cx, cy, rx, ry, color) {
   ellipse(c, cx, cy, rx, ry, color);
 }
 
-function drawFog(c, t, strength) {
+function drawFog(c, t, strength, rgb) {
   for (let i = 0; i < 16; i++) {
     const speed = 4 + (i % 5) * 2;
     const x = ((i * 53 + t / 1000 * speed) % (VIEW_W + 120)) - 60;
     const y = (i * 37) % VIEW_H;
-    pixelEllipse(c, x, y, 34 + (i % 4) * 8, 9 + (i % 3) * 3, "rgba(255,225,250," + strength + ")");
+    pixelEllipse(c, x, y, 34 + (i % 4) * 8, 9 + (i % 3) * 3, "rgba(" + (rgb || "255,225,250") + "," + strength + ")");
   }
 }
 
-function drawStormScreen(t) {
-  const bands = ["#ffc2f0", "#ffb3ec", "#f7a5ee", "#eb98f2", "#de8cf6", "#d081f8", "#c276fa", "#b46bfb"];
-  bands.forEach((color, i) => px(b, 0, i * (VIEW_H / bands.length), VIEW_W, VIEW_H / bands.length + 1, color));
-  drawFog(b, t, 0.28);
+// Things that move in the Storm: drifting fog, falling ash, lightning, a dark frame.
+function drawStormOverlay(t) {
+  drawFog(b, t, 0.2, "190,120,255");
+  for (let i = 0; i < 4; i++) {                                       // fog rising out of the valley
+    const x = 8 * T + ((i * 29 + t / 40) % 64), y = 168 - ((t / 30 + i * 41) % 130);
+    pixelEllipse(b, x, y, 16, 6, "rgba(170,100,240,0.22)");
+  }
+  for (let i = 0; i < 26; i++) {                                      // ash and sparks blowing past
+    const x = ((i * 47 - t / 9) % (VIEW_W + 20) + VIEW_W + 20) % (VIEW_W + 20) - 10;
+    const y = (i * 29 + t / 14 * (1 + (i % 3) * 0.4)) % VIEW_H;
+    px(b, Math.round(x), Math.round(y), 2, 2, i % 3 ? "rgba(230,190,255,0.55)" : "rgba(255,255,255,0.7)");
+  }
+  const phase = (t / 1000) % 5;
+  if (phase < 0.14) {                                                 // lightning
+    px(b, 0, 0, VIEW_W, VIEW_H, "rgba(235,215,255,0.3)");
+    const bx = 40 + (Math.floor(t / 5000) * 83) % 240;
+    [[0, 0], [-6, 14], [4, 30], [-5, 46], [3, 62], [-4, 80]].forEach(([dx, dy], k) => {
+      px(b, bx + dx, dy, 3, 18, "#ffffff"); px(b, bx + dx + 1, dy, 1, 18, "#ffe6ff");
+    });
+  }
+  const hurt = Math.floor(t / 1000) % 2 === 0 && canDrain();          // a faint red flash while the storm hurts
+  px(b, 0, 0, VIEW_W, 6, "rgba(10,0,25,0.5)"); px(b, 0, VIEW_H - 6, VIEW_W, 6, "rgba(10,0,25,0.5)");
+  px(b, 0, 0, 6, VIEW_H, "rgba(10,0,25,0.4)"); px(b, VIEW_W - 6, 0, 6, VIEW_H, "rgba(10,0,25,0.4)");
+  if (hurt) px(b, 0, 0, VIEW_W, VIEW_H, "rgba(255,0,0,0.06)");
 }
 
 function drawStormTiles(t) {
@@ -808,9 +1026,94 @@ function drawLlamaTracks(ox, oy, used) {
   px(b, ox + 11, oy + 12, 2, 3, color); px(b, ox + 14, oy + 12, 2, 3, color);
 }
 
+// ----- football: Ronaldo, Neymar Jr. and Neuer pass the ball round the triangle -----
+const PASS_MS = 1500, HOLD_MS = 500;
+
+function footballState(t) {
+  const cycle = PASS_MS + HOLD_MS;
+  const n = Math.floor(t / cycle), within = t % cycle;
+  return { from: n % 3, to: (n + 1) % 3, flying: within >= HOLD_MS, p: Math.max(0, (within - HOLD_MS) / PASS_MS) };
+}
+
+function footballPose(i, t) {
+  const f = footballState(t);
+  if (f.flying && f.from === i && f.p < 0.2) return "kick";
+  if (f.flying && f.to === i && f.p > 0.6) return "run";
+  return "idle";
+}
+
+function drawBall(t) {
+  const players = town.football.players;
+  const f = footballState(t);
+  const feet = (i) => [players[i][0] * T + 8, players[i][1] * T + 15];
+  const [ax, ay] = feet(f.from), [bx, by] = feet(f.to);
+  const side = Math.sign(bx - ax) * 5;
+  let x = ax + side, y = ay, lift = 0;
+  if (f.flying) {
+    const p = f.p;
+    x = ax + side + (bx - side - ax - side) * p;
+    y = ay + (by - ay) * p;
+    lift = Math.sin(Math.PI * p) * (5 + Math.hypot(bx - ax, by - ay) * 0.12) + Math.abs(Math.sin(p * Math.PI * 2)) * 1.5 * (1 - p);
+  }
+  const spin = f.flying ? Math.floor(f.p * 10) % 3 : 0;
+  const ox = Math.round(x) - 4, oy = Math.round(y - lift) - 9;
+  pixelEllipse(b, Math.round(x), Math.round(y), 5, 1, "rgba(0,0,0,0.3)");
+  px(b, ox + 1, oy, 7, 9, "#1b1030"); px(b, ox, oy + 1, 9, 7, "#1b1030");        // outline
+  px(b, ox + 2, oy + 1, 5, 7, "#ffffff"); px(b, ox + 1, oy + 2, 7, 5, "#ffffff");   // a bigger ball
+  px(b, ox + 3 + (spin === 1 ? 1 : 0), oy + 2, 3, 3, "#222"); px(b, ox + 1 + (spin === 2 ? 1 : 0), oy + 5, 2, 2, "#222"); px(b, ox + 6, oy + 5 - (spin === 0 ? 1 : 0), 2, 2, "#222");
+  px(b, ox + 2, oy + 2, 1, 1, "#cfd2dc");
+  return (y - lift) / T;
+}
+
+function drawArrow(c, cx, cy, dir, t) {            // a pulsing white arrow that shows where one can walk
+  const wave = Math.sin(t / 250);
+  const out = Math.round(wave * 3) + 2;
+  const angle = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[dir];
+  c.save();
+  c.translate(Math.round(cx), Math.round(cy));
+  c.rotate(angle);
+  c.translate(out, 0);
+  c.globalAlpha = 0.65 + 0.35 * wave;
+  px(c, -9, -3, 11, 7, "#1b1030");
+  for (let k = 0; k < 7; k++) px(c, k, -(6 - k), 1, 2 * (6 - k) + 1, "#1b1030");
+  px(c, -8, -2, 9, 5, "#ffffff");
+  for (let k = 0; k < 6; k++) px(c, 1 + k, -(5 - k), 1, 2 * (5 - k) + 1, "#ffffff");
+  c.restore();
+}
+
+function exitDirection([tx, ty]) {
+  return tx === 0 ? "left" : tx === COLS - 1 ? "right" : ty === 0 ? "up" : "down";
+}
+
+function drawExitArrows(t) {
+  const lists = scene === "path" ? Object.values(path.def.ends).map((e) => e.tiles) : (town.exits || []).map((e) => e.tiles);
+  if (town.leave) lists.push(town.leave.tiles);
+  lists.forEach((tiles) => {
+    const cx = tiles.reduce((a, [x]) => a + x, 0) / tiles.length * T + 8;
+    const cy = tiles.reduce((a, [, y]) => a + y, 0) / tiles.length * T + 8;
+    drawArrow(b, cx, cy, exitDirection(tiles[0]), t);
+  });
+}
+
+function drawDoorGlow(t) {                         // a pulsing yellow frame around the entrance (like the glow on things you can use)
+  (town.doors || []).forEach((door) => {
+    const pulse = 0.5 + 0.5 * Math.sin(t / 280);
+    const xs = door.tiles.map(([x]) => x), ys = door.tiles.map(([, y]) => y);
+    const x0 = Math.min(...xs) * T, y0 = Math.min(...ys) * T, w = (Math.max(...xs) - Math.min(...xs) + 1) * T, h = (Math.max(...ys) - Math.min(...ys) + 1) * T;
+    pixelEllipse(b, x0 + w / 2, y0 + h - 3, 22, 6, "rgba(255,210,63," + (0.25 + 0.2 * pulse).toFixed(2) + ")");
+    const col = "rgba(255,210,63," + (0.55 + 0.45 * pulse).toFixed(2) + ")";
+    px(b, x0, y0, w, 2, col); px(b, x0, y0 + h - 2, w, 2, col); px(b, x0, y0, 2, h, col); px(b, x0 + w - 2, y0, 2, h, col);
+    const bounce = Math.round(Math.abs(Math.sin(t / 240)) * 4);       // a bouncing arrow above the door
+    const ax = x0 + w / 2, ay = y0 - 12 - bounce;
+    px(b, ax - 5, ay - 1, 11, 4, "#1b1030"); px(b, ax - 4, ay, 9, 2, "#ffd23f");
+    for (let k = 0; k < 5; k++) { px(b, ax - 5 + k, ay + 3 + k, 11 - 2 * k, 1, "#1b1030"); px(b, ax - 4 + k, ay + 3 + k, 9 - 2 * k, 1, "#ffd23f"); }
+  });
+}
+
 function drawActors(t) {
   const actors = [];
   const ground = [];
+  drawDoorGlow(t);
   town.objects.forEach((o) => {
     if (objGone(o)) return;
     const done = objDone(o);
@@ -828,12 +1131,7 @@ function drawActors(t) {
     ground.push(o);
     actors.push({ y: o.y, draw: () => drawObjectSprite(o, done, t) });
   });
-  if (town.ball) {
-    const p = 0.5 + 0.5 * Math.sin(t / 650);
-    const bx = (town.ball.from[0] + (town.ball.to[0] - town.ball.from[0]) * p) * T + 6;
-    const by = (town.ball.from[1] + (town.ball.to[1] - town.ball.from[1]) * p) * T + 11 - Math.abs(Math.sin(t / 650 * 2)) * 6;
-    actors.push({ y: town.ball.from[1], draw: () => { pixelEllipse(b, bx + 2, by + 6, 3, 1, "rgba(0,0,0,0.25)"); px(b, bx, by, 5, 5, "#f4f4f4"); px(b, bx + 1, by + 1, 2, 2, "#222"); } });
-  }
+  if (town.football) actors.push({ y: 9.9, draw: () => drawBall(t) });
   const px_ = player.fx + (player.tx - player.fx) * player.prog;
   const py_ = player.fy + (player.ty - player.fy) * player.prog;
   actors.push({ y: py_ + 0.4, draw: () => drawThePlayer(px_, py_, t) });
@@ -845,18 +1143,26 @@ function drawActors(t) {
     const topY = o.kind === "npc" || o.sprite === "llama" ? oy - 8 - (o.sprite === "llama" ? 18 : 0)
       : o.decal === "lookout" ? oy - 12 : img && img.naturalHeight ? oy + T - img.naturalHeight : oy;
     const bounce = Math.round(Math.abs(Math.sin(t / 240)) * 4);
-    const mx = ox + 5, my = topY - 14 - bounce;
+    let mx = ox + 5, my = topY - 14 - bounce;
+    if (my < 2) { mx = ox + 13; my = oy - 8 + bounce; }              // at the top edge of the screen: beside the head
     px(b, mx - 1, my - 1, 8, 13, "#1b1030");
     px(b, mx, my, 6, 11, "#ffd23f");
     px(b, mx + 2, my + 1, 2, 5, "#1b1030");
     px(b, mx + 2, my + 8, 2, 2, "#1b1030");
   });
+  // effects on top: the grenade shock ring, the item flying into the backpack
+  if (finale.phase === "jump" && finale.t > 0.55 && finale.t < 1.05) {
+    shockRing(b, finale.from.x * T + 8, finale.from.y * T + 14, (finale.t - 0.55) / 0.5);
+  }
+  if (itemFly.active) {
+    drawItemFly(b, itemFly.t / itemFly.dur, itemFly.from, { x: player.tx * T + 5, y: player.ty * T - 4 }, itemFly.sprite);
+  }
 }
 
 function drawObjectSprite(o, done, t) {
   const ox = o.x * T, oy = o.y * T;
   if (o.kind === "npc") {
-    drawNPC(b, ox, oy, o.style, o.pose, t);
+    drawNPC(b, ox, oy, o.style, o.ball !== undefined ? footballPose(o.ball, t) : o.pose, t);
     return;
   }
   const img = o.sprite ? sprites[o.sprite] : null;
@@ -883,6 +1189,22 @@ function drawObjectSprite(o, done, t) {
 
 function drawThePlayer(x, y, t) {
   const tx = Math.round(x * T), ty = Math.round(y * T);
+  if (finale.phase === "jump") {                // the jump over the valley with an Impulse Grenade
+    const sx = finale.from.x * T, sy = finale.from.y * T, ex = finale.to.x * T, ey = finale.to.y * T;
+    if (finale.t < 0.6) {
+      drawPlayer(b, sx, sy, "right", 0, "walk", t);
+      const grenade = sprites.item_impulse_grenades;                 // the grenade rolls to the feet
+      if (grenade.complete && grenade.naturalWidth) {
+        const gp = finale.t / 0.6;
+        b.drawImage(grenade, Math.round(sx + 6 + gp * 6), Math.round(sy + 6 - Math.sin(Math.PI * gp) * 10), 12, 11);
+      }
+      return;
+    }
+    const p = Math.min(1, (finale.t - 0.6) / 1.5);
+    const e = p * p * (3 - 2 * p);
+    drawPlayer(b, Math.round(sx + (ex - sx) * e), Math.round(sy + (ey - sy) * p - Math.sin(Math.PI * p) * 70), "down", 0, "fall", t);
+    return;
+  }
   if (landing.active) {                         // floating down on a parachute
     const p = easeOut(Math.min(1, landing.t / landing.dur));
     const lift = (1 - p) * (ty + 40);
@@ -900,18 +1222,21 @@ function drawThePlayer(x, y, t) {
 }
 
 function drawWorld(t) {
-  if (scene === "storm") drawStormScreen(t);
-  else b.drawImage(layer, 0, 0);
+  b.drawImage(layer, 0, 0);
   drawActors(t);
-  if (scene !== "storm") drawStormTiles(t);
   if (scene === "storm") {
-    drawFog(b, t + 5000, 0.18);
-    const hit = Math.floor(t / 1000) % 2 === 0 ? 0.05 : 0;       // a faint red flash while the storm hurts
-    if (hit && canDrain()) px(b, 0, 0, VIEW_W, VIEW_H, "rgba(255,0,0," + hit + ")");
+    drawStormOverlay(t);
+  } else {
+    drawStormTiles(t);
+    if (!landing.active && !dance.active && !itemFly.active) drawExitArrows(t);
   }
 }
 
 function drawBusScene(t) {
+  if (bus.jumping) {                                              // jumping out of the bus: a little film
+    drawBusJump(b, Math.min(bus.jt, BUS_JUMP_SECONDS + 0.5), sprites.bus);
+    return;
+  }
   const sky = ["#2f7fe0", "#3a8ae6", "#4a96ea", "#5ca4ee", "#74b4f2", "#8cc4f6", "#a6d4fa", "#c4e4fc"];
   sky.forEach((color, i) => px(b, 0, i * 24, VIEW_W, 25, color));
   for (let i = 0; i < 9; i++) {
@@ -928,39 +1253,57 @@ function drawBusScene(t) {
     return;
   }
   BUS_ZONES.forEach((zone, i) => {                                // the four drop locations
-    const cx = 16 + (i % 2) * 160, cy = 22 + Math.floor(i / 2) * 82;
+    const cx = 16 + (i % 2) * 160, cy = DROP_TOP + Math.floor(i / 2) * DROP_ROW;
     const selected = i === bus.sel;
-    const flash = bus.jumping && Math.floor(t / 90) % 2 === 0;
-    px(b, cx - 3, cy - 3, 134, 78, selected ? (flash ? "#ffffff" : "#ffd23f") : "#1b1030");
+    px(b, cx - 3, cy - 3, 134, 78, selected ? "#ffd23f" : "#1b1030");
     const img = sprites["drop_" + zone.id];
     if (img.complete && img.naturalWidth) b.drawImage(img, cx, cy);
   });
 }
 
+function labelBox(text, x, y) {                   // a small white box with a short line of text
+  ctx.font = 'bold 14px "Courier New", Courier, monospace';
+  const w = ctx.measureText(text).width + 16;
+  const cx = Math.max(w / 2 + 4, Math.min(canvas.width - w / 2 - 4, x));
+  ctx.fillStyle = "#1b1030"; ctx.fillRect(cx - w / 2 - 2, y - 17, w + 4, 26);
+  ctx.fillStyle = "#fffdf0"; ctx.fillRect(cx - w / 2, y - 15, w, 22);
+  ctx.fillStyle = "#1b1030"; ctx.textAlign = "center";
+  ctx.fillText(text, cx, y);
+}
+
+function captionBox(text) {                        // a text box at the bottom that does not block anything
+  const words = text.split(" ");
+  let lines = [text];
+  if (text.length > 62) {
+    const mid = Math.ceil(words.length / 2);
+    lines = [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
+  }
+  ctx.font = 'bold 16px "Courier New", Courier, monospace';
+  const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 40;
+  const h = 14 + lines.length * 24;
+  const x = canvas.width / 2 - w / 2, y = canvas.height - h - 24;
+  ctx.fillStyle = "#1b1030"; ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+  ctx.fillStyle = "#fffdf0"; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "#1b1030"; ctx.textAlign = "center";
+  lines.forEach((l, i) => ctx.fillText(l, canvas.width / 2, y + 28 + i * 24));
+}
+
 function drawLabels(t) {
+  if (cutscene.active) {
+    if (cutscene.def.caption && cutscene.t > 0.6) captionBox(cutscene.def.caption);
+    return;
+  }
   if (scene === "bus") {
-    if (bus.phase === "select") {
-      outlineText(ctx, bus.jumping ? "JUMP!" : "CHOOSE WHERE TO DROP", canvas.width / 2, 16 * SCALE - 8, "#ffffff", 20);
-      BUS_ZONES.forEach((zone, i) => {
-        const cx = 16 + (i % 2) * 160, cy = 22 + Math.floor(i / 2) * 82;
-        outlineText(ctx, zone.name, (cx + 64) * SCALE, (cy + 72 + 9) * SCALE, i === bus.sel ? "#ffd23f" : "#ffffff", 13);
+    if (bus.phase === "select" && !bus.jumping) {
+      outlineText(ctx, "WHERE WE DROPPIN?", canvas.width / 2, 36, "#ffffff", 20);
+      BUS_ZONES.forEach((zone, i) => {                            // each name sits above its own picture
+        const cx = 16 + (i % 2) * 160, cy = DROP_TOP + Math.floor(i / 2) * DROP_ROW;
+        outlineText(ctx, zone.name, (cx + 64) * SCALE, (cy - 5) * SCALE, i === bus.sel ? "#ffd23f" : "#ffffff", 13);
       });
     }
     return;
   }
-  town.signs.forEach((s) => {
-    ctx.font = 'bold 13px "Courier New", Courier, monospace';
-    const w = ctx.measureText(s.text).width + 14;
-    const cx = (s.x * T + 8) * SCALE;
-    const top = (s.y * T - 4) * SCALE - 20;
-    const left = Math.max(4, Math.min(canvas.width - w - 4, cx - w / 2));
-    ctx.fillStyle = "#1b1030"; ctx.fillRect(left - 2, top - 2, w + 4, 24);
-    ctx.fillStyle = "#c68a4a"; ctx.fillRect(left, top, w, 20);
-    ctx.fillStyle = "#e0a863"; ctx.fillRect(left, top, w, 3);
-    ctx.fillStyle = "#3b220f"; ctx.textAlign = "center";
-    ctx.fillText(s.text, left + w / 2, top + 15);
-  });
-  if (!modal && !dialogOpen && !landing.active && !dance.active) {
+  if (!modal && !dialogOpen && !landing.active && !dance.active && !finale.phase && !itemFly.active) {
     const target = nearbyTarget();
     if (target && !target.used) {
       let tileTop = target.y * T;
@@ -971,25 +1314,17 @@ function drawLabels(t) {
       }
       const label = target.kind === "sign" ? "Press SPACE to read"
         : target.obj.kind === "npc" ? "Press SPACE to talk" : "Press SPACE to interact";
-      ctx.font = 'bold 14px "Courier New", Courier, monospace';
-      const w = ctx.measureText(label).width + 16;
-      const cx = Math.max(w / 2 + 4, Math.min(canvas.width - w / 2 - 4, (target.x * T + 8) * SCALE));
-      const cy = Math.max(70, (tileTop - 34) * SCALE);
-      ctx.fillStyle = "#1b1030"; ctx.fillRect(cx - w / 2 - 2, cy - 17, w + 4, 26);
-      ctx.fillStyle = "#fffdf0"; ctx.fillRect(cx - w / 2, cy - 15, w, 22);
-      ctx.fillStyle = "#1b1030"; ctx.textAlign = "center";
-      ctx.fillText(label, cx, cy);
+      labelBox(label, (target.x * T + 8) * SCALE, Math.max(70, (tileTop - 34) * SCALE));
+    } else if (town && town.doors) {
+      town.doors.forEach((door) => {                              // near the entrance: say that one can walk in
+        const [dx, dy] = door.tiles[0];
+        if (Math.abs(player.tx - dx) <= 3 && Math.abs(player.ty - dy) <= 3) {
+          labelBox(door.hint, (dx * T + T) * SCALE, Math.max(70, (dy * T - 30) * SCALE));
+        }
+      });
     }
   }
-  if (caption) {                                                   // a text box that does not block (dance)
-    ctx.font = 'bold 16px "Courier New", Courier, monospace';
-    const w = ctx.measureText(caption).width + 40;
-    const x = canvas.width / 2 - w / 2, y = canvas.height - 62;
-    ctx.fillStyle = "#1b1030"; ctx.fillRect(x - 3, y - 3, w + 6, 44);
-    ctx.fillStyle = "#fffdf0"; ctx.fillRect(x, y, w, 38);
-    ctx.fillStyle = "#1b1030"; ctx.textAlign = "center";
-    ctx.fillText(caption, canvas.width / 2, y + 24);
-  }
+  if (caption) captionBox(caption);                                 // (the dance)
   if (banner.time > 0) {
     ctx.globalAlpha = Math.min(1, banner.time / 500);
     outlineText(ctx, banner.text.toUpperCase(), canvas.width / 2, 34, "#ffd23f", 24);
@@ -999,8 +1334,12 @@ function drawLabels(t) {
 
 // ---------- the loop ----------
 
+// The storm hurts while the player plays. It waits during menus, films and the Chug Jug offer, but not
+// while reading the note or talking (those are choices that cost health).
 function canDrain() {
-  return scene === "storm" && !modal && !dialogOpen && !busy && view && view.status === "in_progress";
+  const waiting = dialogOpen && !(dialogCurrent && dialogCurrent.live);
+  return scene === "storm" && !busy && !waiting && !cutscene.active && !finale.phase && !itemFly.active &&
+    (!modal || modal === "note") && Boolean(view) && view.status === "in_progress";
 }
 
 let lastTime = performance.now();
@@ -1008,9 +1347,15 @@ function loop(now) {
   const real = now - lastTime;             // real time: animations and sounds keep their length
   const dt = Math.min(50, real);           // capped time: walking and the storm never jump ahead
   lastTime = now;
+  if (!$("start").hidden) {                  // the title picture
+    drawTitleScene(tb, now / 1000, sprites);
+    titleCtx.imageSmoothingEnabled = false;
+    titleCtx.drawImage(titleBase, 0, 0, titleCanvas.width, titleCanvas.height);
+  }
   if (!$("stage").hidden && scene) {
     update(dt, now, real);
-    if (scene === "bus") drawBusScene(now); else drawWorld(now);
+    if (cutscene.active) cutscene.def.draw(b, cutscene.t);
+    else if (scene === "bus") drawBusScene(now); else drawWorld(now);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(base, 0, 0, canvas.width, canvas.height);
     drawLabels(now);
@@ -1020,18 +1365,31 @@ function loop(now) {
 }
 
 function canMove() {
-  return !modal && !dialogOpen && !busy && scene !== "bus" && !landing.active && !dance.active;
+  return !modal && !dialogOpen && !busy && scene !== "bus" && !landing.active && !dance.active &&
+    !cutscene.active && !finale.phase && !itemFly.active;
 }
 
 function update(dt, now, real) {
+  if (cutscene.active) {                            // a little film is playing
+    cutscene.t += real / 1000;
+    if (cutscene.t >= cutscene.def.dur) endCutscene();
+    return;
+  }
+  if (itemFly.active) {
+    itemFly.t += real;
+    if (itemFly.t >= itemFly.dur) endItemFly();
+  }
+  if (finale.phase === "jump") {
+    finale.t += real / 1000;
+    if (finale.t >= 2.3) finaleHug();
+  }
   // the bus screen waits for 30 seconds or a click, then moves on
   if (scene === "bus" && dialogOpen && (bus.phase === "intro" || bus.phase === "ready") && now - bus.t0 > AUTO_ADVANCE_MS) {
     nextDialog();
   }
   if (scene === "bus" && bus.jumping) {
     bus.jt += real / 1000;
-    if (bus.jt >= 0.8 && !busy) {
-      bus.jumping = false;
+    if (bus.jt >= BUS_JUMP_SECONDS && !busy) {      // the film is over: land at the chosen place
       const zone = BUS_ZONES[bus.sel];
       perform("land:" + zone.id, () => { bus.jumping = false; });
     }
@@ -1058,6 +1416,8 @@ function update(dt, now, real) {
     if (health <= 0) {
       saveExtras();
       perform("storm_timeout");
+    } else if (health <= CHUG_AT && !chugAsked && state.inventory.includes("chug_jug") && modal !== "chug") {
+      showChugPrompt();                              // low health: offer the Chug Jug
     }
   }
   if (!canMove()) return;
@@ -1110,16 +1470,18 @@ window.addEventListener("keydown", (e) => {
     if (digit && modalKeys[Number(digit[1]) - 1]) {
       e.preventDefault();
       modalKeys[Number(digit[1]) - 1]();
-    } else if (code === "Escape" && modal === "menu") {
-      closeModal();
     }
     return;
   }
-  if (code === "Space" || code === "Enter" || code === "KeyE" || code === "Escape") {
+  if (code === "Space" || code === "Enter" || code === "KeyE") {
     e.preventDefault();
     if (e.repeat) return;
+    if (cutscene.active) {
+      if (cutscene.t > 1.2) cutscene.t = cutscene.def.dur;       // skip the film
+      return;
+    }
     if (dialogOpen) nextDialog();
-    else if (!busy && !landing.active && !dance.active && code !== "Escape") interact();
+    else if (!busy && !landing.active && !dance.active && !finale.phase && !itemFly.active) interact();
     return;
   }
   if (code === "KeyT" && scene === "bus" && bus.phase === "select" && !dialogOpen && !busy && !bus.jumping) talkToDriver();
@@ -1141,7 +1503,10 @@ $("new-btn").addEventListener("click", askStartOver);
 $("restart-btn").addEventListener("click", (e) => { e.currentTarget.blur(); askStartOver(); });
 $("mute-btn").addEventListener("click", (e) => { e.currentTarget.blur(); setMuted(!muted); });
 $("dialog").addEventListener("click", nextDialog);
-canvas.addEventListener("click", () => { if (scene === "bus" && dialogOpen) nextDialog(); });
+canvas.addEventListener("click", () => {
+  if (cutscene.active && cutscene.t > 1.2) cutscene.t = cutscene.def.dur;
+  else if (scene === "bus" && dialogOpen) nextDialog();
+});
 
 loadExtras();
 setMuted(muted);
