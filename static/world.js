@@ -791,6 +791,7 @@ const STORM_EDGE = [[8, 5], [8, 6]];     // the tiles at the edge of the valley 
 function buildStorm() {
   const g = makeGrid("F");
   border(g, "Q");
+  g[5][0] = "F"; g[6][0] = "F";                                   // the way back out (an arrow on the left edge)
   fillRect(g, 8, 1, 4, 10, "V");                                  // the valley
   fillRect(g, 5, 5, 3, 2, "P"); fillRect(g, 12, 5, 3, 2, "P");    // what is left of the bridge
   [[2, 1, "T"], [3, 3, "T"], [9, 6, "T"], [10, 5, "T"], [1, 5, "O"], [2, 6, "O"], [6, 1, "O"], [9, 7, "O"],
@@ -926,6 +927,7 @@ const TOWNS = {
   },
   storm: {
     pal: { floor: "F" }, build: buildStorm, decor: decorStorm, spawn: [4, 6], exits: [], signs: [],
+    stormExit: { tiles: [[0, 5], [0, 6]] },                                        // the arrow on the left edge: the way back out
     objects: [
       { x: 3, y: 3, kind: "note", solid: true, marker: true },
       { x: 3, y: 8, kind: "npc", style: "tanner", name: "Sunbather", pose: "idle", solid: true, marker: true,

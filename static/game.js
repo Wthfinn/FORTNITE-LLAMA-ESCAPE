@@ -143,7 +143,7 @@ const sounds = {
   dance: new Audio(AUDIO + "dance.mp3"),
 };
 sounds.music.loop = true;
-sounds.music.volume = 0.25;
+sounds.music.volume = 0.15;                       // quiet, so the footsteps can be heard
 sounds.music.preload = "none";
 sounds.dance.volume = 0.8;
 let muted = false;
@@ -160,6 +160,75 @@ function play(name, stopAfter) {
     if (promise) promise.catch(() => {});
     if (stopAfter) setTimeout(() => sound.pause(), stopAfter);
   } catch (e) { /* sound is optional */ }
+}
+
+// ---------- footsteps (made with the browser's audio, so there are no sound files) ----------
+
+let stepContext = null, stepNoise = null, stepCount = 0;
+
+function stepAudio() {
+  if (!stepContext) {
+    try {
+      stepContext = new (window.AudioContext || window.webkitAudioContext)();
+      stepNoise = stepContext.createBuffer(1, stepContext.sampleRate * 0.3, stepContext.sampleRate);
+      const data = stepNoise.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    } catch (e) {
+      stepContext = null;
+    }
+  }
+  if (stepContext && stepContext.state === "suspended") stepContext.resume();
+  return stepContext;
+}
+
+// which kind of ground is under the player's feet (tile letters are explained in world.js)
+function surfaceAt(ch) {
+  if ("nik".includes(ch)) return "snow";
+  if ("gpuhaqo".includes(ch)) return "grass";
+  if ("PZ".includes(ch)) return "wood";
+  if ("FxQ".includes(ch)) return "gravel";
+  return "hard";
+}
+
+// one soft burst of noise (a filter shapes it) and, for some ground, a low thump
+function stepBurst(ctx, when, type, freq, q, peak, length) {
+  const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
+  src.buffer = stepNoise;
+  filter.type = type; filter.frequency.value = freq; filter.Q.value = q;
+  gain.gain.setValueAtTime(0.0001, when);
+  gain.gain.exponentialRampToValueAtTime(peak, when + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + length);
+  src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+  src.start(when, Math.random() * 0.15, length + 0.02);
+}
+
+function footstep(surface) {
+  if (muted) return;
+  const ctx = stepAudio();
+  if (!ctx) return;
+  const now = ctx.currentTime, vary = 0.9 + Math.random() * 0.2, foot = stepCount++ % 2 ? 1 : 0.85;
+  if (surface === "grass") {
+    stepBurst(ctx, now, "lowpass", 700 * vary, 0.7, 0.09 * foot, 0.12);
+    stepBurst(ctx, now + 0.02, "bandpass", 2400 * vary, 0.9, 0.025 * foot, 0.08);       // a little rustle
+  } else if (surface === "snow") {
+    stepBurst(ctx, now, "bandpass", 2800 * vary, 0.9, 0.1 * foot, 0.07);                // the crunch
+    stepBurst(ctx, now + 0.045, "highpass", 4200 * vary, 0.7, 0.06 * foot, 0.06);
+  } else if (surface === "wood") {
+    stepBurst(ctx, now, "lowpass", 500 * vary, 0.8, 0.1 * foot, 0.1);
+    const osc = ctx.createOscillator(), g = ctx.createGain();                         // the hollow knock of a plank
+    osc.type = "triangle"; osc.frequency.setValueAtTime(150 * vary, now); osc.frequency.exponentialRampToValueAtTime(70, now + 0.09);
+    g.gain.setValueAtTime(0.12 * foot, now); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+    osc.connect(g); g.connect(ctx.destination); osc.start(now); osc.stop(now + 0.12);
+  } else if (surface === "gravel") {
+    stepBurst(ctx, now, "bandpass", 1300 * vary, 0.8, 0.1 * foot, 0.09);
+    stepBurst(ctx, now + 0.03, "bandpass", 3200 * vary, 1.2, 0.05 * foot, 0.05);
+  } else {                                                                              // pavement: a firm tap
+    stepBurst(ctx, now, "bandpass", 1900 * vary, 1.1, 0.1 * foot, 0.05);
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = "sine"; osc.frequency.setValueAtTime(170 * vary, now); osc.frequency.exponentialRampToValueAtTime(90, now + 0.05);
+    g.gain.setValueAtTime(0.1 * foot, now); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+    osc.connect(g); g.connect(ctx.destination); osc.start(now); osc.stop(now + 0.08);
+  }
 }
 
 function startMusic() {
@@ -185,7 +254,6 @@ function setMuted(value) {
 
 function soundsFor(before, after) {
   if (!before || !after) return;
-  if (!before.hazard && after.hazard) play("alert", 3000);
   if (before.status !== "ended" && after.status === "ended") {
     sounds.music.pause();
     sounds.alert.pause();
@@ -276,7 +344,8 @@ function updateHud() {
   }
   $("hint").textContent = hint;
   const inStorm = scene === "storm";
-  $("health-box").hidden = !inStorm;
+  $("health-box").hidden = !inStorm && health >= 100;           // outside the storm it shows while health is missing
+  updateHealthBar();
 }
 
 function updateHealthBar() {
@@ -411,17 +480,56 @@ function showChugPrompt() {
   }, "danger-option");
 }
 
+// The danger alarm plays for 7 seconds while the card is up. The options can only be chosen when it
+// has finished (so the player hears the warning first); a bar shows how long. With the sound off there is no wait.
+const ALARM_SECONDS = 7;
 function showHazard(v) {
   const panel = openModal("hazard");
   panel.appendChild(el("h2", "", "Danger!"));
   panel.appendChild(pxImage(v.hazard.image));
   panel.appendChild(el("p", "question", v.hazard.situation));
-  v.choices.forEach((choice) => {
-    addOption(panel, choice.label, () => {
-      closeModal();
-      perform(choice.id);
-    }, "danger-option");
-  });
+  const buttons = v.choices.map((choice) => addOption(panel, choice.label, () => {
+    closeModal();
+    perform(choice.id);
+  }, "danger-option"));
+  const alarm = sounds.alert;
+  let locked = false;
+  if (!muted) {
+    try {
+      alarm.currentTime = 0;
+      const started = alarm.play();
+      locked = true;
+      if (started) started.catch(() => release());                // the browser refused to play it: do not make the player wait
+    } catch (e) { locked = false; }
+  }
+  if (!locked) return;
+  const seconds = ALARM_SECONDS;
+  const bar = el("div", "alarm-bar");
+  const fill = el("div", "");
+  fill.style.animationDuration = seconds + "s";
+  bar.appendChild(fill);
+  panel.appendChild(bar);
+  buttons.forEach((b) => { b.disabled = true; });
+  const guarded = modalKeys.map((fn) => () => { if (!locked) fn(); });
+  modalKeys = guarded;
+  function release() {
+    if (!locked) return;
+    locked = false;
+    alarm.removeEventListener("ended", release);
+    alarm.removeEventListener("pause", release);
+    clearTimeout(fadeTimer); clearTimeout(stopTimer); clearInterval(fadeLoop);
+    alarm.volume = 1;
+    buttons.forEach((b) => { b.disabled = false; });
+    fill.classList.add("ready");                                  // the bar is full and turns green
+  }
+  alarm.addEventListener("ended", release);
+  alarm.addEventListener("pause", release);                       // the player switched the sound off
+  let fadeLoop = null;
+  const fadeTimer = setTimeout(() => {                            // the alarm fades out over its last half second
+    const t0 = performance.now();
+    fadeLoop = setInterval(() => { alarm.volume = Math.max(0, 1 - (performance.now() - t0) / 500); }, 40);
+  }, (seconds - 0.5) * 1000);
+  const stopTimer = setTimeout(() => { alarm.pause(); release(); }, seconds * 1000);           // 7 seconds, then the options unlock
 }
 
 function showEnding(v) {
@@ -603,9 +711,7 @@ function enterScene(id, fromId, opts) {
   town = TOWNS[id];
   layoutScene(town);
   if (id === "storm") {
-    health = opts.resume ? extras.health : 100;
-    chugAsked = false;
-    if (!opts.resume) saveExtras();
+    chugAsked = false;                       // the health is NOT reset: what the storm took stays taken
   }
   const arrival = fromId && town.exits.find((e) => e.dest === fromId);
   const [sx, sy] = opts.spawn || (arrival ? arrival.spawn : town.spawn);
@@ -766,7 +872,12 @@ function afterAction(actionId, before, fromScene) {
   }
   if (view.scene_id !== fromScene) {
     const landed = fromScene === "bus";
-    transition(() => enterScene(view.scene_id, fromScene, { landing: landed }));
+    const leftStorm = fromScene === "storm";
+    if (leftStorm) saveExtras();                                  // the health the storm took stays with the player
+    transition(() => {
+      enterScene(view.scene_id, fromScene, { landing: landed, spawn: leftStorm ? [9, 1] : undefined });
+      if (leftStorm) showDialog(view.message);
+    });
     return;
   }
   if (actionId === "decide:danced:yes") {
@@ -923,9 +1034,36 @@ const OTHER_OPTION = {
   },
 };
 
+const BRIDGE_LINES = [
+  "You peek over the edge. The valley is deep, the gap is wide and the llama is annoyingly close. Without a movement item, that jump is impossible.",
+  "You take a mental run-up. Your brain says no. Your legs say 'bold of you to assume'. Without a movement item, that jump is impossible.",
+  "The bridge is 50% bridge and 50% hole, and the missing half is the important one. You would need something that launches you, a movement item, or this ends with a very long fall.",
+  "Across the gap, the llama chews calmly and ignores you. You consider shouting 'JUMP!' at yourself. Without a movement item, that jump is impossible.",
+  "You throw a pebble across. It lands. You are bigger than a pebble. Without a movement item, that jump is impossible. (And the storm is still ticking.)",
+];
+let bridgeLine = -1;
+function nextBridgeLine() {                           // a different line every time
+  bridgeLine = (bridgeLine + 1 + Math.floor(Math.random() * (BRIDGE_LINES.length - 1))) % BRIDGE_LINES.length;
+  return BRIDGE_LINES[bridgeLine];
+}
+
+// The exit tile in the Storm: leave and keep the health as it is.
+function askLeaveStorm() {
+  const panel = openModal("confirm");
+  panel.appendChild(el("p", "question", "Leave the Storm and go back to Polar Peak? Your health stays exactly as it is. The storm will still be here."));
+  addOption(panel, "Yes, leave the Storm", () => {
+    closeModal();
+    perform("leave_storm", () => stepBack());
+  });
+  addOption(panel, "No, stay in the Storm", () => {
+    closeModal();
+    stepBack();
+  });
+}
+
 function useEdge() {
   if (!state.inventory.includes("impulse_grenades")) {
-    showDialog("Your Llama is right there, across the valley! But the bridge has crumbled and the gap is huge. If only you had something that could launch you across...", null, true);
+    showDialog(nextBridgeLine(), null, true);
     return;
   }
   const panel = openModal("menu");
@@ -981,6 +1119,7 @@ function talkToDriver() {
 function onArrive() {
   const x = player.tx, y = player.ty;
   const on = (tiles) => tiles.some(([tx, ty]) => tx === x && ty === y);
+  if (grid && grid[y]) footstep(surfaceAt(grid[y][x]));
   if (scene === "path") {
     if (on(path.def.hazardTiles)) {
       perform("travel:" + path.to, () => stepBack());      // the hazard (if any is left) starts here
@@ -993,6 +1132,14 @@ function onArrive() {
         return;
       }
     }
+    return;
+  }
+  if (town.stormExit && on(town.stormExit.tiles)) {          // the way back out of the Storm
+    askLeaveStorm();
+    return;
+  }
+  if (scene === "storm" && !state.inventory.includes("impulse_grenades") && x === 7 && (y === 5 || y === 6)) {
+    showDialog(nextBridgeLine(), null, true);                 // at the broken bridge without a way across
     return;
   }
   if (town.leave && on(town.leave.tiles)) {                  // leaving the supermarket
@@ -1074,6 +1221,7 @@ async function resume() {
   state = result.data.state;
   view = result.data.view;
   loadExtras();
+  health = extras.health;
   visited.clear();
   readSigns.clear();
   talkCount.clear();
@@ -1233,6 +1381,7 @@ function exitDirection([tx, ty]) {
 function drawExitArrows(t) {
   const lists = scene === "path" ? Object.values(path.def.ends).map((e) => e.tiles) : (town.exits || []).map((e) => e.tiles);
   if (town.leave) lists.push(town.leave.tiles);
+  if (town.stormExit) lists.push(town.stormExit.tiles);                      // the way back out of the Storm
   lists.forEach((tiles) => {
     const cx = tiles.reduce((a, [x]) => a + x, 0) / tiles.length * T + 8;
     const cy = tiles.reduce((a, [, y]) => a + y, 0) / tiles.length * T + 8;
@@ -1389,6 +1538,7 @@ function drawWorld(t) {
   drawActors(t);
   if (scene === "storm") {
     drawStormOverlay(t);
+    if (!landing.active && !itemFly.active && !finale.phase) drawExitArrows(t);       // the arrow back out of the Storm
   } else {
     drawStormTiles(t);
     if (!landing.active && !dance.active && !itemFly.active) drawExitArrows(t);

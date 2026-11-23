@@ -95,9 +95,25 @@ class LockedRouteTests(unittest.TestCase):
         with self.assertRaises(game.ActionError):
             game.apply_action(state, "storm")
 
-    def test_storm_entry_is_one_way(self):
+    def test_in_the_storm_the_player_can_search_drink_leave_or_run_out_of_health(self):
         state = play(polar_peak_with_chug_jug(), "storm")
-        self.assertEqual(ids(state), {"search", "storm_timeout", "use_chug_jug"})
+        self.assertEqual(ids(state), {"search", "storm_timeout", "use_chug_jug", "leave_storm"})
+
+    def test_the_player_can_leave_the_storm_and_the_gate_stays_open(self):
+        state = play(polar_peak_with_chug_jug(), "storm", "use_chug_jug", "leave_storm")
+        self.assertEqual(state["current_scene"], "polar_peak")
+        self.assertNotIn("chug_jug", state["inventory"])          # drunk: no jug any more
+        self.assertIn("storm", ids(state))                          # but the gate stays open
+        self.assertEqual(play(state, "storm")["current_scene"], "storm")
+
+    def test_the_gate_is_still_locked_for_a_player_who_never_entered(self):
+        self.assertNotIn("storm", ids(at_polar_peak()))
+
+    def test_old_saves_without_the_storm_flag_still_load(self):
+        state = polar_peak_with_chug_jug()
+        del state["storm_opened"]
+        game.validate_state(state)
+        self.assertIn("storm", ids(state))
 
 
 class ChugJugTests(unittest.TestCase):

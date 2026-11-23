@@ -46,7 +46,9 @@ update it when the team changes the design.
 - **Elimination cards:** `static/eliminations.js` draws one pixel picture per way of losing (12 hazard deaths + the
   Storm, Ending B) with an ELIMINATED banner and a kill-feed line. The page remembers which one in `extras.death`.
 - **Run the tests:** `python -m unittest discover -s tests -t .` (the `.venv` also works)
-- Flavour decisions D1 and D4 stay. Entering the Storm is one-way. Blocked actions are hidden until
+- Flavour decisions D1 and D4 stay. The Storm can be left again through the exit tile where the player arrived (with a confirm); the health the storm
+  took stays (a hazard-style alarm, footsteps and the broken-bridge pop-up are in `static/game.js`). Once entered, the
+  storm gate stays open (`storm_opened` in the state). Blocked actions are hidden until
   available. The deadly hazard option moves around (1st, 2nd or 3rd, fixed per hazard).
   Only one sign is left on the island: the storm warning in Polar Peak. Places are described by a pop-up on first entry.
   The summit of Polar Peak can only be reached from the bottom of the mountain path.

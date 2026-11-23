@@ -14,6 +14,8 @@ STATE_KEYS = {
     "status", "current_scene", "inventory", "decisions",
     "used_hazards", "pending_hazard", "ending",
 }
+# Saved games from before the player could leave the Storm do not have this field; that is fine.
+OPTIONAL_STATE_KEYS = {"storm_opened"}
 
 
 class ActionError(Exception):
@@ -33,13 +35,16 @@ def new_state():
         "used_hazards": [],
         "pending_hazard": None,
         "ending": None,
+        "storm_opened": False,       # True once the player has been in the Storm: the gate stays open
     }
 
 
 def validate_state(state):
     """Raise StateError unless `state` is a well-formed game state."""
-    if not isinstance(state, dict) or set(state) != STATE_KEYS:
+    if not isinstance(state, dict) or not STATE_KEYS <= set(state) <= STATE_KEYS | OPTIONAL_STATE_KEYS:
         raise StateError("State has the wrong fields.")
+    if not isinstance(state.get("storm_opened", False), bool):
+        raise StateError("Invalid storm flag.")
     if state["status"] not in ("in_progress", "ended"):
         raise StateError("Unknown status.")
     if state["current_scene"] not in story.SCENES:
@@ -140,9 +145,10 @@ def get_actions(state):
         for poi in story.POIS:
             if poi != scene:
                 actions.append({"id": f"travel:{poi}", "label": f"Go to {story.SCENES[poi]['name']}"})
-        if scene == "polar_peak" and _has_storm_gear(state):
+        if scene == "polar_peak" and (_has_storm_gear(state) or state.get("storm_opened")):
             actions.append({"id": "storm", "label": "Enter the Storm"})
     elif scene == "storm":
+        actions.append({"id": "leave_storm", "label": "Leave the Storm"})
         actions.append({"id": "search", "label": "Search for the Llama"})
         if "chug_jug" in state["inventory"]:
             actions.append({"id": "use_chug_jug", "label": "Drink the Chug Jug"})
@@ -224,7 +230,12 @@ def apply_action(state, action_id):
 
     if kind == "storm":
         new["current_scene"] = "storm"
+        new["storm_opened"] = True
         return new, "You take a deep breath and step into the Storm."
+
+    if action_id == "leave_storm":
+        new["current_scene"] = "polar_peak"
+        return new, "You step back out of the Storm. Your health stays exactly as it is."
 
     if action_id == "use_chug_jug":
         new["inventory"].remove("chug_jug")      # drunk: the page gives the health back
@@ -246,7 +257,9 @@ def _move_node(action_id):
     kind, _, rest = action_id.partition(":")
     if kind in ("land", "travel"):
         return rest
-    return "storm" if action_id == "storm" else None
+    if action_id == "storm":
+        return "storm"
+    return "polar_peak" if action_id == "leave_storm" else None
 
 
 def build_view(state, message=""):
