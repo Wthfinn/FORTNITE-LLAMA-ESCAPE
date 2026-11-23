@@ -53,6 +53,9 @@ update it when the team changes the design.
 - **Sky scenes:** `static/sky.js` has the Battle Bus (blue-and-white balloon over a battered blue bus), the umbrella glider, the
   6-second jump film (`drawBusJump`), the glider landings, the supply drop, the title picture, the dance disco and the
   flight out of the Storm, all with the same cinematic camera as the death films and no spoken words.
+- **Win and Storm scenes:** `static/finale.js` has the film for stepping into the Storm, the hug film, the Victory Royale film and
+  its card (Ending A), the Chug Jug drinking effect and the sound cue list of every film. `static/sfx.js` makes the sound effects
+  with the browser's own audio (no files). A film asks for a sound with `cues: [[seconds, name, loudness], ...]`.
 - **Death films:** `static/films.js` has the 12 elimination films (camera push-ins, screen shake, black bars, fades,
   no talking, only pictures). `cinematic()` wraps every film. The hazard alarm lasts 4 seconds (`ALARM_SECONDS`).
 - **Elimination cards:** `static/eliminations.js` draws one pixel picture per way of losing (12 hazard deaths + the

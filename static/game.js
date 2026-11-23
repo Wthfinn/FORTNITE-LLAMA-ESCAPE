@@ -62,7 +62,8 @@ const held = [];           // arrow keys currently held, last one wins
 const player = { tx: 0, ty: 0, fx: 0, fy: 0, last: [0, 0], dir: "down", moving: false, prog: 0, step: 0 };
 const bus = { phase: "intro", t0: 0, sel: 0, jumping: false, jt: 0 };   // jt: seconds since the jump started
 const landing = { active: false, t: 0, dur: 2600 };    // the player floats down on a parachute
-const drop = { active: false, t: 0, dur: 4400 };       // the supply drop floats down (first visit only)
+const drop = { active: false, t: 0, dur: 4400 };
+const drinkFx = { active: false, t: 0, dur: 1800 };    // drinking the Chug Jug       // the supply drop floats down (first visit only)
 const dance = { active: false, t: 0, dur: 7000 };
 const cutscene = { active: false, t: 0, def: null, onDone: null };   // an elimination film
 const itemFly = { active: false, t: 0, dur: 1700, sprite: null, from: null };   // an item flies into the backpack
@@ -615,7 +616,7 @@ function showEnding(v) {
   recordTrophy(code, card ? extras.death : null, extras.deathWhere);
   panel.appendChild(el("p", "ending-tag", "Ending " + code));
   if (!card || code !== "C") panel.appendChild(el("h2", "", v.ending.title));
-  panel.appendChild(card ? eliminationCard(extras.death) : pxImage(v.ending.image));
+  panel.appendChild(code === "A" ? victoryCard() : card ? eliminationCard(extras.death) : pxImage(v.ending.image));
   panel.appendChild(el("p", "question", v.ending.text));
   panel.appendChild(el("p", "because", v.ending.because));                // how the player's choices led here
   const review = el("ul", "review");
@@ -958,6 +959,7 @@ async function perform(actionId, onReject, rejectText) {
 function afterAction(actionId, before, fromScene) {
   if (actionId.startsWith("collect:")) {
     play("open");
+    SFX.play("chime", 0.9, 0.2);
     startItemFly(actionId.split(":")[1], () => { if (view.message) showDialog(view.message); });
     return;
   }
@@ -966,7 +968,9 @@ function afterAction(actionId, before, fromScene) {
     chugAsked = false;
     saveExtras();
     updateHealthBar();
-    play("open", 1500);
+    drinkFx.active = true; drinkFx.t = 0;
+    SFX.play("glug", 1); SFX.play("chime", 0.8, 0.75);
+    const box = $("health-box"); box.classList.remove("heal"); void box.offsetWidth; box.classList.add("heal");       // the health bar glows green
     showDialog("Glug, glug, glug! Your health goes up by " + CHUG_HEAL + ". The Chug Jug is empty now.", null, true);
     return;
   }
@@ -996,6 +1000,10 @@ function afterAction(actionId, before, fromScene) {
     if (!before.hazard) showHazard(view);
     return;
   }
+  if (actionId === "storm" && view.scene_id === "storm") {          // stepping into the Storm: the wall of purple closes in
+    startCutscene(STORM_ENTER_FILM, () => { startMusic(); transition(() => enterScene(view.scene_id, fromScene)); });
+    return;
+  }
   if (view.scene_id !== fromScene) {
     const landed = fromScene === "bus";
     const leftStorm = fromScene === "storm";
@@ -1011,7 +1019,7 @@ function afterAction(actionId, before, fromScene) {
     return;
   }
   if (actionId === "decide:took_high_ground:yes") {               // up the mountain, binoculars, the llama in the distance
-    startCutscene({ dur: SUMMIT_SECONDS, caption: "", draw: (c, t) => drawSummitBinoculars(c, t, sprites) },
+    startCutscene({ dur: SUMMIT_SECONDS, caption: "", cues: [[0.2, "gust", 0.7], [1.9, "click", 0.8], [3.0, "whoosh", 0.4], [7.4, "chime", 0.8], [7.5, "click", 0.8]], draw: (c, t) => drawSummitBinoculars(c, t, sprites) },
       () => { startMusic(); if (view.message) showDialog(view.message); });
     return;
   }
@@ -1020,9 +1028,17 @@ function afterAction(actionId, before, fromScene) {
 
 // ---------- the little films ----------
 
+// A film can ask for sound effects at certain moments: cues = [[seconds, sound, loudness], ...].
+function fireCues(def, t, fired) {
+  (def.cues || []).forEach((cue, i) => {
+    if (t >= cue[0] && !fired.has(i)) { fired.add(i); SFX.play(cue[1], cue[2]); }
+  });
+}
+
 function startCutscene(def, onDone) {
   resetDialogs();
   closeModal();
+  cutscene.fired = new Set();
   cutscene.active = true;
   cutscene.t = 0;
   cutscene.def = def;
@@ -1058,32 +1074,30 @@ function endItemFly() {
 }
 
 const HUG_GOOD = "You land right next to your Llama and give it the biggest hug of your life. It makes a noise a llama really should not be able to make. \"Time to go home,\" you whisper, and you pull out another Impulse Grenade.";
-const HUG_BAD = "You land next to your Llama and hug it. Then it hits you: you have no idea where the safe zone is. The last Impulse Grenade would only throw you deeper into the purple fog.";
 
 // The jump over the valley. The storm keeps draining health while the player is in the air. Only when the
 // player lands next to the Llama with health left does the page tell the server ("search"): that is the win.
 function startJump() {
   finale.phase = "jump";
   finale.t = 0;
+  finale.fired = new Set();
   finale.before = view;
   finale.from = { x: player.tx, y: player.ty };
   finale.to = { x: 15, y: 5 };
   held.length = 0;
 }
 
+// Landing next to the Llama in time is the win: the hug, the story line, the blast out of the Storm and Victory Royale.
 function finaleHug() {
   finale.phase = "hug";
   placePlayer(finale.to.x, finale.to.y, "right");
-  const good = view.ending.code === "A";
-  showDialog(good ? HUG_GOOD : HUG_BAD, () => {
-    finale.phase = null;
-    if (good) {
-      startCutscene({ dur: 4.6, caption: "", draw: (c, t) => drawStormEscape(c, t, sprites) },
-        () => { soundsFor(finale.before, view); showEnding(view); });
-    } else {
-      soundsFor(finale.before, view);
-      showEnding(view);
-    }
+  startCutscene(HUG_FILM, () => {
+    showDialog(HUG_GOOD, () => {
+      finale.phase = null;
+      startCutscene({ dur: STORM_ESCAPE_FILM.dur, cues: STORM_ESCAPE_FILM.cues, caption: "", draw: (c, t) => drawStormEscape(c, t, sprites) }, () => {
+        startCutscene(WIN_FILM, () => { soundsFor(finale.before, view); showEnding(view); });
+      });
+    });
   });
 }
 
@@ -1130,6 +1144,7 @@ function interact() {
     if (bus.phase === "select" && !bus.jumping) {
       bus.jumping = true;
       bus.jt = 0;
+      bus.fired = new Set();
     } else if (bus.jumping && bus.jt > 1.5) {
       bus.jt = BUS_JUMP_SECONDS;               // skip the rest of the film
     }
@@ -1418,6 +1433,48 @@ function drawStormOverlay(t) {
   if (hurt) px(b, 0, 0, VIEW_W, VIEW_H, "rgba(255,0,0,0.06)");
 }
 
+// The Storm at the top of Polar Peak: a roiling wall of purple cloud with a vortex over the gate, lightning, snow being
+// sucked in and glowing mist spilling down. It is drawn over the top of the map so anyone can see at once what it is.
+function drawStormWall(t) {
+  const sec = t / 1000, W = COLS * T, cx = 10 * T;
+  const g = b.createLinearGradient(0, 0, 0, 40);                                    // the sky goes dark and purple
+  g.addColorStop(0, "rgba(28,6,66,0.94)"); g.addColorStop(0.5, "rgba(70,25,130,0.5)"); g.addColorStop(1, "rgba(120,70,200,0)");
+  b.fillStyle = g; b.fillRect(0, 0, W, 40);
+  for (let layer = 0; layer < 3; layer++) {                                           // three layers of clouds sliding in different directions
+    for (let i = 0; i < 17; i++) {
+      const sp = (5 + layer * 4) * (layer % 2 ? -1 : 1), span = W + 90;
+      const x = ((((i * 20 + hash(i, layer, 200) % 14) + sec * sp) % span) + span) % span - 45;
+      const near = Math.abs(x - cx) < 56 ? 1 : 0;                                    // thicker, lower billows above the gate
+      const y = 1 + layer * 5 + hash(i, layer, 201) % 6 + Math.sin(sec * 0.8 + i + layer) * 2 + near * 2;
+      const col = ["#26105a", "#4a1f88", "#6a35b0"][layer], hi = ["#4a2a90", "#7a45c8", "#a574e6"][layer];
+      pixelEllipse(b, Math.round(x), Math.round(y), 20 + (i % 3) * 7, 7 + layer * 2 + near, col);
+      pixelEllipse(b, Math.round(x + 4), Math.round(y - 3), 11 + near * 3, 4 + near, hi);
+    }
+  }
+  const pulse = 0.5 + 0.5 * Math.sin(sec * 3);                                        // the vortex over the gate
+  pixelEllipse(b, cx, 12, 38 + pulse * 5, 11, "rgba(170,110,255," + (0.22 + 0.1 * pulse).toFixed(2) + ")");
+  pixelEllipse(b, cx, 12, 22, 7, "rgba(200,150,255,0.35)"); pixelEllipse(b, cx, 11, 10, 4, "rgba(255,235,255," + (0.35 + 0.2 * pulse).toFixed(2) + ")");
+  for (let k = 0; k < 30; k++) {
+    const a = k * 0.7 + sec * 2.6, r = 6 + k * 2;
+    px(b, Math.round(cx + Math.cos(a) * r * 1.5), Math.round(10 + Math.sin(a) * r * 0.26 + k * 0.3), 2, 2, k % 3 ? "#c9a0ff" : "#ffffff");
+  }
+  const slot = Math.floor(sec * 2.2), frac = (sec * 2.2) % 1;                          // lightning now and then
+  if (hash(slot, 1, 202) % 3 === 0 && frac < 0.24) {
+    const bx = hash(slot, 2, 202) % 4 === 0 ? cx : 30 + hash(slot, 3, 202) % 260;
+    let x = bx;
+    for (let y = 8; y < 60; y += 7) { const nx = bx + Math.round(Math.sin(y * 0.3 + slot) * 9); px(b, Math.min(x, nx), y, Math.abs(nx - x) + 2, 8, "#fff7b0"); px(b, Math.min(x, nx) - 1, y, Math.abs(nx - x) + 4, 8, "rgba(210,170,255,0.4)"); x = nx; }
+    b.fillStyle = "rgba(220,190,255,0.1)"; b.fillRect(0, 0, W, 96);
+  }
+  for (let i = 0; i < 22; i++) {                                                      // snow and ice get pulled into the storm
+    const ph = ((sec * (0.35 + (i % 4) * 0.12) + i * 0.17) % 1), sx = hash(i, 5, 203) % W, tx = sx + (cx - sx) * ph * 0.5;
+    px(b, Math.round(tx), Math.round(120 - ph * 120), 1 + i % 2, 3 + i % 3, i % 2 ? "rgba(255,255,255,0.8)" : "rgba(190,230,255,0.8)");
+  }
+  for (let i = 0; i < 5; i++) {                                                       // purple mist spills down over the snow
+    const mx = ((i * 83 + sec * (8 + i * 2)) % (W + 100)) - 50;
+    pixelEllipse(b, Math.round(mx), 44 + i * 4, 40, 6, "rgba(150,90,230,0.09)");
+  }
+}
+
 function drawStormTiles(t) {
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
@@ -1566,6 +1623,7 @@ function drawActors(t) {
   const py_ = player.fy + (player.ty - player.fy) * player.prog;
   actors.push({ y: py_ + 0.4, draw: () => drawThePlayer(px_, py_, t) });
   actors.sort((a, c2) => a.y - c2.y).forEach((a) => a.draw());
+  if (drinkFx.active) drawDrinkFx(b, player.tx * T, player.ty * T, drinkFx.t / drinkFx.dur, t / 1000);
   ground.forEach((o) => {                                          // bouncing exclamation marks on top
     if (!o.marker || objDone(o) || objGone(o) || objLocked(o)) return;
     const ox = o.x * T, oy = o.y * T;
@@ -1671,6 +1729,7 @@ function drawWorld(t) {
     if (!landing.active && !itemFly.active && !finale.phase) drawExitArrows(t);       // the arrow back out of the Storm
   } else {
     drawStormTiles(t);
+    if (town && town.storm) drawStormWall(t);                                  // Polar Peak: the Storm looming at the top
     if (!landing.active && !dance.active && !itemFly.active) drawExitArrows(t);
   }
 }
@@ -1890,13 +1949,14 @@ function loop(now) {
 }
 
 function canMove() {
-  return !modal && !dialogOpen && !busy && scene !== "bus" && !landing.active && !dance.active &&
+  return !modal && !dialogOpen && !busy && scene !== "bus" && !landing.active && !dance.active && !drinkFx.active &&
     !cutscene.active && !finale.phase && !itemFly.active;
 }
 
 function update(dt, now, real) {
   if (cutscene.active) {                            // a little film is playing
     cutscene.t += real / 1000;
+    fireCues(cutscene.def, cutscene.t, cutscene.fired);
     if (cutscene.t >= cutscene.def.dur) endCutscene();
     return;
   }
@@ -1906,6 +1966,7 @@ function update(dt, now, real) {
   }
   if (finale.phase === "jump") {
     finale.t += real / 1000;
+    if (finale.fired) fireCues({ cues: [[0.55, "zap", 1], [0.62, "rise", 0.6], [2.15, "thud", 0.5], [2.2, "chime", 0.7]] }, finale.t, finale.fired);
     if (finale.t >= 2.3 && health > 0 && !busy) perform("search");       // landed with health left: the Llama is yours
   }
   // the bus screen waits for 30 seconds or a click, then moves on
@@ -1914,6 +1975,7 @@ function update(dt, now, real) {
   }
   if (scene === "bus" && bus.jumping) {
     bus.jt += real / 1000;
+    if (bus.fired) fireCues(BUS_FILM, bus.jt, bus.fired);
     if (bus.jt >= BUS_JUMP_SECONDS && !busy) {      // the film is over: land at the chosen place
       const zone = BUS_ZONES[bus.sel];
       perform("land:" + zone.id, () => { bus.jumping = false; });
@@ -1921,6 +1983,7 @@ function update(dt, now, real) {
   }
   if (landing.active) {
     landing.t += real;
+    if (landing.t >= landing.dur) SFX.play("thud", 0.35);
     if (landing.t >= landing.dur) {
       landing.active = false;
       afterEnter(scene);
@@ -1928,7 +1991,11 @@ function update(dt, now, real) {
   }
   if (drop.active) {
     drop.t += real;
-    if (drop.t >= drop.dur) drop.active = false;
+    if (drop.t >= drop.dur) { drop.active = false; SFX.play("thud", 0.4); }
+  }
+  if (drinkFx.active) {
+    drinkFx.t += real;
+    if (drinkFx.t >= drinkFx.dur) drinkFx.active = false;
   }
   if (dance.active) {
     dance.t += real;
@@ -2034,7 +2101,7 @@ window.addEventListener("blur", () => { held.length = 0; });
 $("resume-btn").addEventListener("click", resume);
 $("new-btn").addEventListener("click", askStartOver);
 $("log-btn").addEventListener("click", showTrophies);
-$("health-box").addEventListener("animationend", (e) => e.currentTarget.classList.remove("pulse"));
+$("health-box").addEventListener("animationend", (e) => e.currentTarget.classList.remove("pulse", "heal"));
 $("pause-btn").addEventListener("click", (e) => { e.currentTarget.blur(); pauseGame(); });
 $("mute-btn").addEventListener("click", (e) => { e.currentTarget.blur(); setMuted(!muted); });
 $("dialog").addEventListener("click", nextDialog);

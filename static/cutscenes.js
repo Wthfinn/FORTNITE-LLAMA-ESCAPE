@@ -206,6 +206,12 @@ function shockRing(c, x, y, p) {
 // p goes 0 -> 1. from / to are the item's start and the player's back, in screen pixels.
 function drawItemFly(c, p, from, to, sprite) {
   const rise = clamp01(p / 0.3), fly = clamp01((p - 0.3) / 0.5), tuck = clamp01((p - 0.8) / 0.2);
+  if (p < 0.42) {                                                              // a burst of light where the item pops out
+    const k = p / 0.42;
+    ellipse(c, Math.round(from.x), Math.round(from.y), Math.round(4 + 22 * k), Math.round(3 + 12 * k), "rgba(255,226,120," + (0.55 * (1 - k)).toFixed(2) + ")");
+    ellipse(c, Math.round(from.x), Math.round(from.y), Math.round(2 + 10 * k), Math.round(2 + 6 * k), "rgba(255,255,230," + (0.7 * (1 - k)).toFixed(2) + ")");
+    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283, d = 6 + 26 * k; px(c, Math.round(from.x + Math.cos(a) * d), Math.round(from.y + Math.sin(a) * d * 0.7), 2, 2, i % 2 ? "#fff6c0" : "#ffd23f"); }
+  }
   // the little backpack on the player's back
   const bx = to.x - 10, by = to.y + 8;
   const open = p > 0.65 && p < 0.95;
