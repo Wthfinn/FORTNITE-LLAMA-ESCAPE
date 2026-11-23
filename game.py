@@ -211,30 +211,90 @@ def apply_action(state, action_id):
     return new, story.ENDINGS[new["ending"]]["text"]
 
 
+def _move_node(action_id):
+    """The map place an action moves the player to, or None if it is not a move."""
+    kind, _, rest = action_id.partition(":")
+    if kind in ("land", "travel"):
+        return rest
+    return "storm" if action_id == "storm" else None
+
+
 def build_view(state, message=""):
     """Everything the web page needs to show the current state."""
     validate_state(state)
-    scene = story.SCENES[state["current_scene"]]
+    scene_id = state["current_scene"]
+    scene = story.SCENES[scene_id]
     pending = state["pending_hazard"]
+    ended = state["status"] == "ended"
+    actions = get_actions(state)
+
+    # Moves are clicked on the map; every other action is a button in the card.
+    move_for_node = {_move_node(a["id"]): a["id"] for a in actions if _move_node(a["id"])}
+    map_nodes = []
+    for node_id, pos in story.MAP_NODES.items():
+        if node_id == "bus" and scene_id != "bus":
+            continue
+        if node_id == "storm" and node_id not in move_for_node and scene_id != "storm":
+            continue  # hidden until the player can enter the Storm
+        map_nodes.append({
+            "id": node_id,
+            "name": story.SCENES[node_id]["name"],
+            "x": pos["x"], "y": pos["y"],
+            "here": node_id == scene_id,
+            "action": move_for_node.get(node_id),
+        })
+
+    choices = []
+    for action in actions:
+        if _move_node(action["id"]):
+            continue
+        choice = dict(action)
+        if action["id"].startswith("collect:"):
+            choice["image"] = story.ITEMS[action["id"].split(":")[1]]["prop"]
+        choices.append(choice)
+
+    props = [
+        {"image": item["prop"], "name": item["action_label"]}
+        for item_id, item in story.ITEMS.items()
+        if item["scene"] == scene_id and item_id not in state["inventory"]
+    ]
 
     view = {
         "status": state["status"],
+        "scene_id": scene_id,
         "scene_name": scene["name"],
         "text": scene["text"],
+        "image": f"scene_{scene_id}.jpg",
         "message": message,
-        "actions": get_actions(state),
-        "inventory": [story.ITEMS[i]["name"] for i in state["inventory"]],
+        "actions": actions,
+        "choices": choices,
+        "map": {
+            "nodes": map_nodes,
+            "token_at": story.HAZARDS[pending]["destination"] if pending else scene_id,
+        },
+        "props": props,
+        "hazard": None,
+        "inventory": [
+            {"name": story.ITEMS[i]["name"], "icon": story.ITEMS[i]["icon"]}
+            for i in state["inventory"]
+        ],
         "ending": None,
         "review": None,
     }
 
     if pending is not None:
-        view["text"] = story.HAZARDS[pending]["situation"]
+        hazard = story.HAZARDS[pending]
+        view["hazard"] = {"id": pending, "image": f"hazard_{pending}.jpg",
+                          "situation": hazard["situation"]}
         view["scene_name"] = "Danger!"
+        view["text"] = hazard["situation"]
 
-    if state["status"] == "ended":
+    if ended:
         ending = story.ENDINGS[state["ending"]]
-        view["ending"] = {"code": state["ending"], "title": ending["title"], "text": ending["text"]}
+        view["ending"] = {
+            "code": state["ending"], "title": ending["title"], "text": ending["text"],
+            "image": f"ending_{state['ending'].lower()}.jpg",
+        }
         view["review"] = {
             "decisions": [
                 {

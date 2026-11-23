@@ -4,14 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fortnite Llama Escape</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body data-img="{{ url_for('static', filename='img/') }}" data-audio="{{ url_for('static', filename='audio/') }}">
   <main>
-    <h1>Fortnite Llama Escape</h1>
-    <p class="tagline">Your Llama ran away. Find it before the storm does.</p>
+    <header>
+      <div>
+        <h1>Fortnite Llama Escape</h1>
+        <p class="tagline">Your Llama ran away. Find it before the storm does.</p>
+      </div>
+      <button id="mute-btn" type="button" class="icon-btn" aria-label="Sound on or off" aria-pressed="false">Sound: on</button>
+    </header>
 
     <section id="start" class="card" hidden>
+      <img class="banner" src="{{ url_for('static', filename='img/player_portrait.jpg') }}" alt="Your Fortnite character">
       <p id="start-note"></p>
       <div class="buttons">
         <button id="resume-btn" type="button" hidden>Resume game</button>
@@ -27,24 +34,43 @@
       </div>
     </section>
 
-    <section id="game" class="card" hidden>
-      <div id="ending" class="ending" hidden>
-        <p id="ending-code" class="ending-code"></p>
-        <h2 id="ending-title"></h2>
-      </div>
-      <h2 id="scene-name"></h2>
-      <p id="scene-text"></p>
-      <p id="message" class="message" role="status" hidden></p>
-      <p id="error" class="error" role="alert" hidden></p>
-      <div id="actions" class="buttons column"></div>
-
-      <div id="review" hidden>
-        <h3>Review</h3>
-        <ul id="review-list"></ul>
+    <section id="game" hidden>
+      <div id="map-box" class="map-box">
+        <div id="map" class="map">
+          <img id="map-img" src="{{ url_for('static', filename='img/map.jpg') }}" alt="Island map">
+          <svg id="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div id="map-nodes"></div>
+          <img id="token" class="token" src="{{ url_for('static', filename='img/player_token.png') }}" alt="You are here">
+        </div>
+        <p id="map-hint" class="hint"></p>
       </div>
 
-      <p class="inventory">Inventory: <span id="inventory"></span></p>
-      <button id="restart-btn" type="button" class="secondary small">New game</button>
+      <div id="card" class="card">
+        <div id="ending" class="ending" hidden>
+          <p id="ending-code" class="ending-code"></p>
+          <h2 id="ending-title"></h2>
+        </div>
+        <div class="picture">
+          <img id="scene-img" alt="">
+          <img id="prop-img" class="prop" alt="" hidden>
+        </div>
+        <h2 id="scene-name"></h2>
+        <p id="scene-text"></p>
+        <p id="message" class="message" role="status" hidden></p>
+        <p id="error" class="error" role="alert" hidden></p>
+        <div id="actions" class="buttons column"></div>
+
+        <div id="review" hidden>
+          <h3>Review</h3>
+          <ul id="review-list"></ul>
+        </div>
+
+        <div class="inventory-box">
+          <h3>Inventory</h3>
+          <ul id="inventory" class="inventory"></ul>
+        </div>
+        <button id="restart-btn" type="button" class="secondary small">New game</button>
+      </div>
     </section>
   </main>
   <script src="{{ url_for('static', filename='game.js') }}"></script>

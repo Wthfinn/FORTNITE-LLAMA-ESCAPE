@@ -60,6 +60,8 @@ ITEMS = {
     "impulse_grenades": {
         "name": "Impulse Grenades",
         "scene": "retail_row",
+        "icon": "item_impulse_grenades.png",
+        "prop": "prop_vending_machine.png",
         "action_label": "Use the vending machine",
         "found_text": "The vending machine rattles and drops a pack of Impulse Grenades. You grab them.",
         "empty_text": "The vending machine is empty now.",
@@ -67,6 +69,8 @@ ITEMS = {
     "chug_jug": {
         "name": "Chug Jug",
         "scene": "tilted_towers",
+        "icon": "item_chug_jug.png",
+        "prop": "prop_supply_drop.png",
         "action_label": "Open the supply drop",
         "found_text": "You pop open the supply drop and find a shiny Chug Jug. You grab it.",
         "empty_text": "The supply drop is empty now.",
@@ -224,3 +228,15 @@ ENDINGS = {
 STORM_UNLOCK_ITEMS = ["impulse_grenades", "chug_jug"]
 STORM_LOCKED_TEXT = "You won't last a second in the storm without gear. Find some first."
 GOOD_ENDING_ITEM = "impulse_grenades"
+
+# Where each place sits on the island map (percent of the map picture) and the
+# order of the map. Scene pictures are static/img/scene_<id>.jpg, hazard
+# pictures static/img/hazard_<id>.jpg, ending pictures static/img/ending_<letter>.jpg.
+MAP_NODES = {
+    "bus": {"x": 11, "y": 22},
+    "polar_peak": {"x": 58, "y": 22},
+    "pleasant_park": {"x": 22, "y": 58},
+    "tilted_towers": {"x": 50, "y": 52},
+    "retail_row": {"x": 76, "y": 76},
+    "storm": {"x": 89, "y": 15},
+}

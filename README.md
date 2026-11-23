@@ -17,13 +17,23 @@ Built for the Nova SBE "Introduction to Programming" team project (Plot Twist).
 
 ## How to play
 
-1. Press **New game** and choose where the Battle Bus drops you.
-2. Travel between Pleasant Park, Retail Row, Tilted Towers and Polar Peak. Every trip brings a danger
-   with three options. Pick the wrong one and you are eliminated.
+1. Press **New game** and click a place on the map to choose where the Battle Bus drops you.
+2. Click glowing places on the map to move your character between Pleasant Park, Retail Row, Tilted
+   Towers and Polar Peak. Every trip brings a danger with three options. Pick the wrong one and you are
+   eliminated. At each place you can click to make decisions or collect items.
 3. Collect items, make decisions and find the Storm. The items and your choices decide how it ends.
 
 Your progress is saved in **your own browser** after every action. Close the page and come back later:
 press **Resume game**. Clearing your browser data deletes the save.
+
+## Pictures and sound
+
+The pictures and sounds come from the team's own asset pack (Fortnite artwork belongs to Epic Games and
+is only used here for a university project). They are in `static/img/` and `static/audio/`.
+Pictures the pack did not contain (island map, Battle Bus sky, Storm, trap, the three ending pictures)
+are composed from the pack's pictures by `tools/make_generated_images.py`. To change them, edit that
+file and run it again (`pip install pillow`, then `python tools/make_generated_images.py`). The game
+itself does not need Pillow.
 
 ## Run it locally
 
@@ -56,7 +66,8 @@ invalid requests, security headers).
 | `game.py` | The rules. Checks that an action is allowed, then returns a new game state. |
 | `app.py` | Small Flask web server. Receives the saved state and an action, asks `game.py`, sends back the result. |
 | `templates/index.html`, `static/` | The page the player sees. Saves the state in the browser (localStorage). |
-| `tests/` | Automated tests. |
+| `tools/make_generated_images.py` | Optional helper that composes the extra pictures. |
+| `tests/` | Automated tests (rules, web server, and that every picture and sound exists). |
 | `concept.md` | The game design (concepts, map, items, decisions, hazards, endings, data model). |
 
 Where is the data stored? Only in the player's browser. The server keeps no player data and has no
