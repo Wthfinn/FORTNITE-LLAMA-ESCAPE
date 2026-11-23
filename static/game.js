@@ -1571,7 +1571,7 @@ function drawActors(t) {
     const ox = o.x * T, oy = o.y * T;
     const img = o.sprite ? sprites[o.sprite] : null;
     const topY = o.kind === "npc" || o.sprite === "llama" ? oy - 8 - (o.sprite === "llama" ? 18 : 0)
-      : o.decal === "lookout" ? oy - 12 : img && img.naturalHeight ? oy + T - img.naturalHeight : oy;
+      : o.decal === "lookout" ? oy - 12 : o.sprite === "prop_supply_drop" ? oy + 2 : img && img.naturalHeight ? oy + T - img.naturalHeight : oy;
     const bounce = Math.round(Math.abs(Math.sin(t / 240)) * 4);
     let mx = ox + 5, my = topY - 14 - bounce;
     if (my < 2) { mx = ox + 13; my = oy - 8 + bounce; }              // at the top edge of the screen: beside the head
@@ -1611,9 +1611,8 @@ function drawObjectSprite(o, done, t) {
     if (drop.active) {                          // floating down on its balloon
       const p = easeOut(Math.min(1, drop.t / drop.dur));
       SKY.supplyDrop(b, ox + 8, oy + T - 5, p, t / 1000);
-    } else {                                    // landed: only the crate is left
-      const crate = Math.round(h * 0.34);
-      b.drawImage(img, 0, h - crate, w, crate, x, oy + T - crate, w, crate);
+    } else {                                    // landed: only the crate is left (the same new crate)
+      SKY.supplyDrop(b, ox + 8, oy + T - 5, 1, t / 1000);
     }
     return;
   }
@@ -1748,7 +1747,7 @@ function drawLabels(t) {
     if (target && !target.used) {
       let tileTop = target.y * T;
       if (target.kind === "object" && target.obj.kind === "npc") tileTop -= 8;
-      else if (target.kind === "object" && target.obj.sprite) {
+      else if (target.kind === "object" && target.obj.sprite && target.obj.sprite !== "prop_supply_drop") {
         const img = sprites[target.obj.sprite];
         if (img && img.naturalHeight) tileTop = target.y * T + T - img.naturalHeight;
       }

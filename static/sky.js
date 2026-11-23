@@ -163,7 +163,7 @@ SKY.busIntro = (c, t) => {
   for (let i = 0; i < 12; i++) px(c, ((hash(i, 1, 141) % 340) + t * 8) % 340, 180 + hash(i, 2, 141) % 12, 8, 1, "rgba(255,255,255,0.5)");
   SKY.cloudRows(c, t, 9, 1, "255,255,255");
   [[250, 70], [60, 96], [290, 120]].forEach(([x, y], i) => SKY.diver(c, ((x + t * 5) % 340) - 10, y + Math.sin(t * 1.5 + i) * 3, t, i));    // other players, far away
-  SKY.bus(c, 160 - 52, 4, 1.3, t);
+  SKY.bus(c, 160 - 34, 2, 0.9, t);                                    // smaller and high up: the dialogue box covers the lower part of the screen
   FX.birds(c, t, 30, 4, 18, 8, "#3a3a4a");
 };
 
@@ -234,16 +234,19 @@ function pixelShadow(c, x, y, rx, ry, a) { ellipse(c, Math.round(x), Math.round(
 SKY.supplyDrop = (c, x, y, p, t) => {             // (x, y) = where the crate lands (centre of the tile); p goes 0 -> 1
   const cy = Math.round(y - (1 - p) * 150);
   pixelShadow(c, x, y + 4, Math.round(5 + 8 * p), Math.round(2 + 3 * p), 0.1 + 0.2 * p);
-  if (p < 0.97) {
-    const sway = Math.round(Math.sin(t * 2.2) * 2 * (1 - p));
-    ellipse(c, x + sway, cy - 34, 13, 11, "#2f80e0"); ellipse(c, x + sway - 4, cy - 37, 6, 5, "#8fc8ff");
-    for (let k = -8; k <= 8; k += 4) px(c, x + sway + k, cy - 44 + Math.abs(k) / 3, 2, 21 - Math.abs(k) / 2, k % 8 ? "#f4faff" : "#2f80e0");                 // stripes on the balloon
-    px(c, x + sway - 5, cy - 24, 10, 3, "#14284a");
-    for (let q = -1; q <= 1; q++) for (let s = 0; s <= 9; s++) px(c, Math.round(lerp(x + sway + q * 4, x + q * 4, s / 9)), cy - 22 + s * 2, 1, 1, "#d8c9a0");   // ropes
-    for (let k = 0; k < 7; k++) { const sy = cy - 4 + k * 8, a = 0.5 - k * 0.06; ellipse(c, x + Math.round(Math.sin(t * 3 + k) * 3), sy, 3 + k, 3 + k * 0.6, "rgba(255,210,80," + Math.max(0, a).toFixed(2) + ")"); }   // a bright smoke trail
+  const fade = 1 - clamp01((p - 0.82) / 0.16), sink = (1 - fade) * 16;          // the balloon softly deflates and fades as the crate lands
+  if (fade > 0) {
+    c.globalAlpha = fade;
+    const sway = Math.round(Math.sin(t * 2.2) * 2 * (1 - p)), by = cy - 34 + sink;
+    ellipse(c, x + sway, by, 13, Math.round(11 * (1 - (1 - fade) * 0.5)), "#2f80e0"); ellipse(c, x + sway - 4, by - 3, 6, 5, "#8fc8ff");
+    for (let k = -8; k <= 8; k += 4) px(c, x + sway + k, Math.round(by - 10 + Math.abs(k) / 3), 2, Math.round(21 - Math.abs(k) / 2 - sink / 2), k % 8 ? "#f4faff" : "#2f80e0");     // stripes on the balloon
+    px(c, x + sway - 5, Math.round(by + 10), 10, 3, "#14284a");
+    for (let q = -1; q <= 1; q++) for (let s = 0; s <= 9; s++) px(c, Math.round(lerp(x + sway + q * 4, x + q * 4, s / 9)), Math.round(by + 12 + s * (22 - sink) / 9), 1, 1, "#d8c9a0");   // ropes
+    for (let k = 0; k < 7; k++) { const sy = cy - 4 + k * 8, a = (0.5 - k * 0.06) * fade; ellipse(c, x + Math.round(Math.sin(t * 3 + k) * 3), sy, 3 + k, 3 + k * 0.6, "rgba(255,210,80," + Math.max(0, a).toFixed(2) + ")"); }   // a bright smoke trail
+    c.globalAlpha = 1;
   }
-  px(c, x - 7, cy - 6, 14, 10, "#d9a63a"); px(c, x - 7, cy - 6, 14, 2, "#ffe680"); px(c, x - 7, cy + 2, 14, 2, "#8a6a1a"); px(c, x - 1, cy - 6, 2, 10, "#2f80e0"); px(c, x - 7, cy - 2, 14, 2, "#2f80e0");   // the crate
-  px(c, x - 3, cy - 9, 6, 3, "#3a3d4a"); px(c, x - 2, cy - 8, 4, 1, "#ff4f5e");
+  px(c, x - 8, cy - 8, 16, 12, "#d9a63a"); px(c, x - 8, cy - 8, 16, 2, "#ffe680"); px(c, x - 8, cy + 2, 16, 2, "#8a6a1a"); px(c, x - 1, cy - 8, 2, 12, "#2f80e0"); px(c, x - 8, cy - 3, 16, 2, "#2f80e0");   // the crate
+  px(c, x - 3, cy - 11, 6, 3, "#3a3d4a"); px(c, x - 2, cy - 10, 4, 1, "#ff4f5e"); px(c, x - 8, cy - 8, 1, 12, "rgba(255,255,255,0.3)");
 };
 
 // ---------- the default dance: disco lights, a flashing floor and confetti (drawn over the dance spot) ----------
