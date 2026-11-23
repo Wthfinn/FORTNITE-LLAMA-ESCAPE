@@ -480,9 +480,9 @@ function showChugPrompt() {
   }, "danger-option");
 }
 
-// The danger alarm plays for 7 seconds while the card is up. The options can only be chosen when it
+// The danger alarm plays for 6 seconds while the card is up. The options can only be chosen when it
 // has finished (so the player hears the warning first); a bar shows how long. With the sound off there is no wait.
-const ALARM_SECONDS = 7;
+const ALARM_SECONDS = 6;
 function showHazard(v) {
   const panel = openModal("hazard");
   panel.appendChild(el("h2", "", "Danger!"));
@@ -529,7 +529,7 @@ function showHazard(v) {
     const t0 = performance.now();
     fadeLoop = setInterval(() => { alarm.volume = Math.max(0, 1 - (performance.now() - t0) / 500); }, 40);
   }, (seconds - 0.5) * 1000);
-  const stopTimer = setTimeout(() => { alarm.pause(); release(); }, seconds * 1000);           // 7 seconds, then the options unlock
+  const stopTimer = setTimeout(() => { alarm.pause(); release(); }, seconds * 1000);           // 6 seconds, then the options unlock
 }
 
 function showEnding(v) {

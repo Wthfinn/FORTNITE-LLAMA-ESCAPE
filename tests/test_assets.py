@@ -52,7 +52,7 @@ class AnimationAndWorldDataTests(unittest.TestCase):
     """The pictures that are drawn in code (static/cutscenes.js, static/world.js)."""
 
     def test_every_hazard_has_its_own_elimination_film(self):
-        films = (STATIC / "cutscenes.js").read_text()
+        films = (STATIC / "films.js").read_text()
         for hazard_id in story.HAZARDS:
             with self.subTest(hazard=hazard_id):
                 match = re.search(r"^  %s: \{ dur: ([0-9.]+), caption: \"(.+?)\"," % hazard_id, films, re.M)
