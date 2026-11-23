@@ -16,7 +16,8 @@ import game
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10_000  # a game state is far smaller
 # Always serve the newest page and files, so the browser never mixes an old
-# page with new game code.
+# page with new game code. (The scripts and the style sheet are fetched with ?v=<number>, see
+# add_security_headers below, so they can still be cached safely.)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
@@ -37,6 +38,21 @@ def add_security_headers(response):
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; style-src 'self'; script-src 'self'"
     )
+    return response
+
+
+@app.after_request
+def add_cache_headers(response):
+    """Let the browser keep the big static files, so a visit does not download them again.
+
+    Pictures and sounds: kept for an hour. Scripts and style sheet: their address holds a number
+    (?v=...) that changes with every edit, so the browser can keep them for as long as it likes.
+    """
+    if request.method == "GET" and response.status_code == 200:
+        if request.path.startswith(("/static/img/", "/static/audio/")):
+            response.headers["Cache-Control"] = "public, max-age=3600"
+        elif request.path.startswith("/static/") and "v" in request.args:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
 
 

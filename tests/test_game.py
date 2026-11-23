@@ -376,6 +376,120 @@ class EndingTests(unittest.TestCase):
         self.assertEqual(endings, {"A", "B", "C"})
 
 
+class RememberedChoiceTests(unittest.TestCase):
+    """BRD PT04: remembered decisions that change a later action or the ending, and say so in the text.
+
+    The vending machine (take the Impulse Grenades or not) and every answer at a danger count.
+    """
+
+    def to_the_storm(self, grenades):
+        state = play(game.new_state(), "land:tilted_towers", "collect:chug_jug",
+                     "travel:retail_row", "hazard:0")
+        if grenades:
+            state = play(state, "collect:impulse_grenades")
+        return play(state, "travel:polar_peak", "hazard:0", "storm")
+
+    def test_taking_the_grenades_from_the_vending_machine_decides_the_ending(self):
+        with_grenades = play(self.to_the_storm(True), "search")
+        without_grenades = play(self.to_the_storm(False), "search")
+        self.assertEqual(with_grenades["ending"], "A")
+        self.assertEqual(without_grenades["ending"], "B")
+
+    def test_the_ending_text_says_how_the_vending_machine_choice_led_to_it(self):
+        good = game.build_view(play(self.to_the_storm(True), "search"))
+        bad = game.build_view(play(self.to_the_storm(False), "search"))
+        self.assertIn("because you took the Impulse Grenades", good["ending"]["because"])
+        self.assertIn("never took the Impulse Grenades", bad["ending"]["because"])
+        self.assertIn("You took the Impulse Grenades from the vending machine.", good["review"]["items"])
+        self.assertIn("You never took the Impulse Grenades from the vending machine.", bad["review"]["items"])
+        self.assertIn("You took the Chug Jug from the supply drop.", good["review"]["items"])
+
+    def test_running_out_of_health_with_the_grenades_has_its_own_text(self):
+        view = game.build_view(play(self.to_the_storm(True), "storm_timeout"))
+        self.assertEqual(view["ending"]["code"], "B")
+        self.assertIn("did take the Impulse Grenades", view["ending"]["because"])
+
+    def test_the_chug_jug_still_counts_as_taken_after_it_was_drunk(self):
+        state = play(self.to_the_storm(True), "use_chug_jug", "search")
+        self.assertNotIn("chug_jug", state["inventory"])
+        self.assertIn("You took the Chug Jug from the supply drop.", game.build_view(state)["review"]["items"])
+
+    def test_every_answer_at_a_danger_is_remembered(self):
+        state = play(game.new_state(), "land:retail_row", "travel:polar_peak")
+        hazard_id = state["pending_hazard"]
+        state, _ = game.apply_action(state, resolve_hazard(state, "hazard:1"))
+        chosen = state["hazard_choices"][hazard_id]
+        self.assertFalse(story.HAZARDS[hazard_id]["options"][chosen]["deadly"])
+        self.assertIn(hazard_id, state["used_hazards"])
+
+    def test_a_deadly_answer_is_remembered_too_and_listed_on_the_ending(self):
+        state = play(game.new_state(), "land:retail_row", "travel:polar_peak")
+        hazard_id = state["pending_hazard"]
+        state = play(state, "hazard:2")
+        self.assertEqual(state["ending"], "C")
+        chosen = state["hazard_choices"][hazard_id]
+        self.assertTrue(story.HAZARDS[hazard_id]["options"][chosen]["deadly"])
+        view = game.build_view(state)
+        self.assertEqual(len(view["review"]["dangers"]), 1)
+        self.assertIn("eliminated", view["review"]["dangers"][0])
+        self.assertIn(story.HAZARDS[hazard_id]["options"][chosen]["text"], view["review"]["dangers"][0])
+        self.assertEqual(view["ending"]["because"], story.ENDING_BECAUSE["C"])
+
+    def test_surviving_a_danger_is_remembered_and_changes_what_the_path_does_next(self):
+        state = play(game.new_state(), "land:retail_row", "travel:polar_peak")
+        first = state["pending_hazard"]
+        state = play(state, "hazard:0", "travel:retail_row")          # the same path again
+        self.assertIsNotNone(state["pending_hazard"])
+        self.assertNotEqual(state["pending_hazard"], first)           # its second danger, not the first again
+
+    def test_the_danger_lines_follow_the_order_the_dangers_were_met(self):
+        state = play(game.new_state(), "land:retail_row", "travel:polar_peak", "hazard:0",
+                     "travel:retail_row", "hazard:0", "travel:tilted_towers", "hazard:2")
+        lines = game.build_view(state)["review"]["dangers"]
+        situations = [story.HAZARDS[h]["situation"] for h in state["hazard_choices"]]
+        self.assertEqual(len(lines), 3)
+        for line, situation in zip(lines, situations):
+            self.assertTrue(line.startswith(situation))
+
+    def test_a_game_saved_before_the_answers_were_remembered_still_loads(self):
+        state = play(game.new_state(), "land:retail_row", "travel:polar_peak", "hazard:0")
+        del state["hazard_choices"]
+        game.validate_state(state)
+        ended = copy.deepcopy(state)
+        ended.update(status="ended", ending="B")
+        game.validate_state(ended)
+        self.assertTrue(game.build_view(ended)["review"]["dangers"][0].endswith("(survived)"))
+
+    def test_remembered_answers_that_do_not_fit_the_game_are_rejected(self):
+        survived = play(game.new_state(), "land:retail_row", "travel:polar_peak", "hazard:0")
+        hazard_id = survived["used_hazards"][0]
+        options = story.HAZARDS[hazard_id]["options"]
+        deadly = [i for i, o in enumerate(options) if o["deadly"]][0]
+        cases = {
+            "not a dict": [1, 2],
+            "unknown hazard": {"H99": 0},
+            "option number out of range": {hazard_id: 7},
+            "option number is text": {hazard_id: "0"},
+            "option number is a bool": {hazard_id: False},
+            "survived hazard with a deadly answer": {hazard_id: deadly},
+            "answer for a hazard that was never survived": {**survived["hazard_choices"], "H1": 0},
+            "list key": {"H1": [0]},
+        }
+        for name, bad in cases.items():
+            broken = copy.deepcopy(survived)
+            broken["hazard_choices"] = bad
+            with self.subTest(case=name), self.assertRaises(game.StateError):
+                game.validate_state(broken)
+
+    def test_items_can_be_inspected(self):
+        for item_id, item in story.ITEMS.items():
+            with self.subTest(item=item_id):
+                self.assertTrue(item["description"].strip())
+        view = game.build_view(play(game.new_state(), "land:tilted_towers", "collect:chug_jug"))
+        self.assertIn("healing", view["inventory"][0]["description"].lower())
+        self.assertEqual(view["items_total"], len(story.ITEMS))
+
+
 class RejectedActionTests(unittest.TestCase):
     def test_unknown_and_malformed_actions_are_rejected(self):
         state = play(game.new_state(), "land:retail_row")
@@ -458,6 +572,33 @@ class StateValidationTests(unittest.TestCase):
                 game.validate_state(broken)
             with self.subTest(case=name + " (apply_action)"), self.assertRaises(game.StateError):
                 game.apply_action(broken, "land:retail_row")
+
+    def test_odd_json_values_in_any_field_never_crash_the_checks(self):
+        """The state comes from the browser, so every field can hold any JSON value.
+
+        Lists and objects used to crash the server (a list cannot be looked up in a dictionary).
+        Now the check must either accept the state or raise StateError, whatever is in a field.
+        """
+        odd_values = [None, True, False, 0, 1, 1.5, "", "x", [], [[]], [None], {}, {"a": 1}, ["A"], [{}]]
+        for state in (play(game.new_state(), "land:retail_row"),
+                      play(game.new_state(), "land:retail_row", "travel:polar_peak")):   # one is mid-hazard
+            for field in list(state):
+                for value in odd_values:
+                    broken = copy.deepcopy(state)
+                    broken[field] = value
+                    with self.subTest(field=field, value=value):
+                        try:
+                            game.validate_state(broken)
+                            game.apply_action(broken, "land:retail_row")
+                        except (game.StateError, game.ActionError):
+                            pass
+
+    def test_a_decision_must_be_yes_no_or_unanswered(self):
+        for value in (1, 0, "yes", [], {}):
+            state = game.new_state()
+            state["decisions"]["danced"] = value
+            with self.subTest(value=value), self.assertRaises(game.StateError):
+                game.validate_state(state)
 
 
 class ViewTests(unittest.TestCase):

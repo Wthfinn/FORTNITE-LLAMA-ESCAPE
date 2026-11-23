@@ -60,6 +60,10 @@ ITEMS = {
         "action_label": "Use the vending machine",
         "found_text": "The vending machine rattles and drops a pack of Impulse Grenades. You grab them.",
         "empty_text": "The vending machine is empty now.",
+        "description": (
+            "Throw one at your feet and it launches you through the air. At the edge of the valley "
+            "in the Storm it is the only way across. Never used up."
+        ),
     },
     "chug_jug": {
         "name": "Chug Jug",
@@ -69,7 +73,33 @@ ITEMS = {
         "action_label": "Open the supply drop",
         "found_text": "You pop open the supply drop and find a shiny Chug Jug. You grab it.",
         "empty_text": "The supply drop is empty now.",
+        "description": (
+            "A healing item. Having it opens the gate to the Storm at Polar Peak. Drink it inside "
+            "the Storm for +50 health."
+        ),
     },
+}
+
+# How the player's choices shaped the ending. The ending card shows these lines (see game.build_view).
+# Taking or leaving an item, and every answer at a danger, are remembered in the saved game.
+CHOICE_LINES = {
+    "impulse_grenades": (
+        "You took the Impulse Grenades from the vending machine.",
+        "You never took the Impulse Grenades from the vending machine.",
+    ),
+    "chug_jug": (
+        "You took the Chug Jug from the supply drop.",
+        "You never took the Chug Jug from the supply drop.",
+    ),
+}
+ENDING_BECAUSE = {
+    "A": ("This ending is yours because you took the Impulse Grenades from the vending machine: "
+          "they launched you over the valley and out of the Storm."),
+    "B_with_grenades": ("You did take the Impulse Grenades from the vending machine, but the Storm "
+                        "took all your health before you could use them to reach the Llama."),
+    "B_without_grenades": ("You never took the Impulse Grenades from the vending machine. Without "
+                           "them there was no way across the valley, and the Storm did the rest."),
+    "C": "Every danger on the way is a choice. This one was the last choice you made.",
 }
 
 # The decisions are flavour: none of them changes the ending any more (affects_ending is always False).

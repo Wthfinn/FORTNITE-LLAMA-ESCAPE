@@ -60,6 +60,18 @@ class WebTests(unittest.TestCase):
                 response = self.client.post(path, json=body)
                 self.assertIn(response.status_code, (400, 409))
 
+    def test_odd_values_in_the_state_give_400_never_a_server_error(self):
+        good = game.new_state()
+        for field, value in [("current_scene", []), ("inventory", [[]]), ("used_hazards", [{}]),
+                             ("pending_hazard", []), ("ending", []), ("status", []),
+                             ("current_scene", {"a": 1}), ("decisions", {"danced": []})]:
+            state = copy.deepcopy(good)
+            state[field] = value
+            for path in ("/api/action", "/api/view"):
+                with self.subTest(field=field, value=value, path=path):
+                    body = {"state": state, "action": "land:retail_row"}
+                    self.assertEqual(self.client.post(path, json=body).status_code, 400)
+
     def test_state_with_cheated_item_is_rejected(self):
         state = game.new_state()
         state["inventory"] = ["golden_pickaxe"]
@@ -73,6 +85,26 @@ class WebTests(unittest.TestCase):
     def test_oversized_request_is_rejected(self):
         response = self.client.post("/api/action", json={"state": "x" * 20_000, "action": "a"})
         self.assertEqual(response.status_code, 413)
+
+    def headers_of(self, path):
+        """The response headers of a GET (the response is closed, so no file stays open)."""
+        with self.client.get(path) as response:
+            return dict(response.headers)
+
+    def test_pictures_and_sounds_can_be_cached_and_the_page_itself_cannot(self):
+        self.assertIn("max-age=3600", self.headers_of("/static/img/favicon.png")["Cache-Control"])
+        self.assertIn("max-age=3600", self.headers_of("/static/audio/open.mp3")["Cache-Control"])
+        self.assertNotIn("max-age=3600", self.headers_of("/").get("Cache-Control", ""))
+        api = self.client.post("/api/new")
+        self.assertNotIn("max-age", api.headers.get("Cache-Control", ""))
+
+    def test_scripts_with_a_version_number_can_be_cached_for_long(self):
+        self.assertIn("immutable", self.headers_of("/static/game.js?v=123")["Cache-Control"])
+        self.assertNotIn("immutable", self.headers_of("/static/game.js")["Cache-Control"])
+
+    def test_the_music_is_small_enough_to_load_fast(self):
+        music = app_module._STATIC / "audio" / "music.mp3"
+        self.assertLess(music.stat().st_size, 3_000_000)
 
     def test_security_headers_are_set(self):
         response = self.client.get("/")

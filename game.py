@@ -14,8 +14,9 @@ STATE_KEYS = {
     "status", "current_scene", "inventory", "decisions",
     "used_hazards", "pending_hazard", "ending",
 }
-# Saved games from before the player could leave the Storm do not have this field; that is fine.
-OPTIONAL_STATE_KEYS = {"storm_opened"}
+# Saved games from before these fields existed do not have them; that is fine.
+# hazard_choices remembers the answer given at every danger: {"H2": 0, ...} (number of the option).
+OPTIONAL_STATE_KEYS = {"storm_opened", "hazard_choices"}
 
 
 class ActionError(Exception):
@@ -36,34 +37,47 @@ def new_state():
         "pending_hazard": None,
         "ending": None,
         "storm_opened": False,       # True once the player has been in the Storm: the gate stays open
+        "hazard_choices": {},        # which option the player chose at each danger (BRD PT04: remembered decisions)
     }
 
 
+def _known(value, collection):
+    """True if `value` is a text that is a key of `collection`.
+
+    The state comes from the browser, so it can hold anything (lists, numbers, ...).
+    Looking up a list in a dictionary would crash the server, so the type is checked first.
+    """
+    return isinstance(value, str) and value in collection
+
+
 def validate_state(state):
-    """Raise StateError unless `state` is a well-formed game state."""
+    """Raise StateError unless `state` is a well-formed game state.
+
+    Whatever the browser sends, this either passes or raises StateError (never any other error).
+    """
     if not isinstance(state, dict) or not STATE_KEYS <= set(state) <= STATE_KEYS | OPTIONAL_STATE_KEYS:
         raise StateError("State has the wrong fields.")
     if not isinstance(state.get("storm_opened", False), bool):
         raise StateError("Invalid storm flag.")
-    if state["status"] not in ("in_progress", "ended"):
+    if not _known(state["status"], ("in_progress", "ended")):
         raise StateError("Unknown status.")
-    if state["current_scene"] not in story.SCENES:
+    if not _known(state["current_scene"], story.SCENES):
         raise StateError("Unknown scene.")
 
     inventory = state["inventory"]
     if (not isinstance(inventory, list)
-            or any(i not in story.ITEMS for i in inventory)
+            or any(not _known(i, story.ITEMS) for i in inventory)
             or len(set(inventory)) != len(inventory)):
         raise StateError("Invalid inventory.")
 
     decisions = state["decisions"]
     if (not isinstance(decisions, dict) or set(decisions) != set(story.DECISIONS)
-            or any(v not in (True, False, None) for v in decisions.values())):
+            or any(v is not True and v is not False and v is not None for v in decisions.values())):
         raise StateError("Invalid decisions.")
 
     used = state["used_hazards"]
     if (not isinstance(used, list)
-            or any(h not in story.HAZARDS for h in used)
+            or any(not _known(h, story.HAZARDS) for h in used)
             or len(set(used)) != len(used)):
         raise StateError("Invalid hazards.")
     for hazard_id in used:  # the second hazard of a path can only be used after the first
@@ -73,7 +87,7 @@ def validate_state(state):
 
     pending = state["pending_hazard"]
     if pending is not None:
-        if pending not in story.HAZARDS or pending in used:
+        if not _known(pending, story.HAZARDS) or pending in used:
             raise StateError("Invalid pending hazard.")
         origin = state["current_scene"]
         path = story.HAZARDS[pending]["path"]
@@ -83,11 +97,31 @@ def validate_state(state):
             raise StateError("Invalid pending hazard.")
 
     if state["status"] == "ended":
-        if state["ending"] not in story.ENDINGS or pending is not None:
+        if not _known(state["ending"], story.ENDINGS) or pending is not None:
             raise StateError("Invalid ending.")
     elif state["ending"] is not None:
         raise StateError("Invalid ending.")
 
+    _validate_hazard_choices(state, used)
+
+
+def _validate_hazard_choices(state, used):
+    """The remembered answers at the dangers must fit the rest of the state."""
+    choices = state.get("hazard_choices", {})
+    if not isinstance(choices, dict):
+        raise StateError("Invalid hazard choices.")
+    for hazard_id, option_number in choices.items():
+        if not _known(hazard_id, story.HAZARDS):
+            raise StateError("Invalid hazard choices.")
+        options = story.HAZARDS[hazard_id]["options"]
+        if type(option_number) is not int or not 0 <= option_number < len(options):
+            raise StateError("Invalid hazard choices.")
+        # a survived danger was a safe choice; a deadly choice never gets survived
+        if options[option_number]["deadly"] == (hazard_id in used):
+            raise StateError("Invalid hazard choices.")
+    fatal = [h for h in choices if h not in used]
+    if fatal and (state["status"] != "ended" or state["ending"] != "C" or len(fatal) != 1):
+        raise StateError("Invalid hazard choices.")
 
 def other_end(path, place):
     """The place at the other end of a path."""
@@ -209,6 +243,7 @@ def apply_action(state, action_id):
         hazard = story.HAZARDS[hazard_id]
         new["pending_hazard"] = None
         option = hazard["options"][int(rest)]
+        new["hazard_choices"] = {**state.get("hazard_choices", {}), hazard_id: int(rest)}   # remembered (PT04)
         if option["deadly"]:
             new["status"] = "ended"
             new["ending"] = "C"
@@ -325,9 +360,11 @@ def build_view(state, message=""):
         },
         "hazard": None,
         "inventory": [
-            {"name": story.ITEMS[i]["name"], "icon": story.ITEMS[i]["icon"]}
+            {"name": story.ITEMS[i]["name"], "icon": story.ITEMS[i]["icon"],
+             "description": story.ITEMS[i]["description"]}
             for i in state["inventory"]
         ],
+        "items_total": len(story.ITEMS),
         "ending": None,
         "review": None,
     }
@@ -343,16 +380,55 @@ def build_view(state, message=""):
         ending = story.ENDINGS[state["ending"]]
         view["ending"] = {
             "code": state["ending"], "title": ending["title"], "text": ending["text"],
+            "because": ending_because(state),
             "image": f"ending_{state['ending'].lower()}.jpg",
         }
         view["review"] = {
             "decisions": [
                 {
                     "question": d["question"],
-                    "answer": d["yes"] if state["decisions"][i] else d["no"],
+                    "answer": d["yes"] if state["decisions"][i] is True else d["no"],
                 }
                 for i, d in story.DECISIONS.items() if state["decisions"][i] is not None
             ],
             "hazards_survived": len(state["used_hazards"]),
+            "items": item_choice_lines(state),
+            "dangers": danger_choice_lines(state),
         }
     return view
+
+
+def _had_item(state, item_id):
+    """Did the player take this item? (The Chug Jug is gone once drunk, but then the Storm gate was open.)"""
+    if item_id in state["inventory"]:
+        return True
+    return item_id == "chug_jug" and bool(state.get("storm_opened"))
+
+
+def item_choice_lines(state):
+    """One sentence per item: did the player take it? (BRD PT04: choices shown in the text)"""
+    return [story.CHOICE_LINES[i][0 if _had_item(state, i) else 1] for i in story.ITEMS]
+
+
+def danger_choice_lines(state):
+    """One sentence per danger the player met, in order: what was ahead and which option they chose."""
+    choices = state.get("hazard_choices", {})
+    lines = []
+    for hazard_id in list(state["used_hazards"]) + [h for h in choices if h not in state["used_hazards"]]:
+        hazard = story.HAZARDS[hazard_id]
+        if hazard_id in choices:
+            option = hazard["options"][choices[hazard_id]]
+            result = "eliminated" if option["deadly"] else "survived"
+            lines.append(f"{hazard['situation']} You chose: {option['text']} ({result}).")
+        else:                                   # a game saved before the answers were remembered
+            lines.append(f"{hazard['situation']} (survived)")
+    return lines
+
+
+def ending_because(state):
+    """The sentence that says how the player's choices led to this ending."""
+    code = state["ending"]
+    if code == "B":
+        return story.ENDING_BECAUSE["B_with_grenades" if _had_item(state, story.GOOD_ENDING_ITEM)
+                                    else "B_without_grenades"]
+    return story.ENDING_BECAUSE[code]
