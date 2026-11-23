@@ -14,65 +14,37 @@
         <h1>Fortnite Llama Escape</h1>
         <p class="tagline">Your Llama ran away. Find it before the storm does.</p>
       </div>
-      <button id="mute-btn" type="button" class="icon-btn" aria-label="Sound on or off" aria-pressed="false">Sound: on</button>
+      <button id="mute-btn" type="button" class="small" aria-label="Sound on or off" aria-pressed="false">Sound: on (M)</button>
     </header>
 
-    <section id="start" class="card" hidden>
-      <img class="banner" src="{{ url_for('static', filename='img/player_portrait.jpg') }}" alt="Your Fortnite character">
+    <section id="start" class="panel" hidden>
+      <img class="pixel title" src="{{ url_for('static', filename='img/px/title.png') }}" alt="Your Fortnite character">
       <p id="start-note"></p>
-      <div class="buttons">
+      <div class="row">
         <button id="resume-btn" type="button" hidden>Resume game</button>
         <button id="new-btn" type="button">New game</button>
       </div>
+      <p class="help">Walk with the arrow keys or WASD. Press SPACE to talk, use things and read signs. Press 1, 2 or 3 to choose.</p>
     </section>
 
-    <section id="confirm" class="card warning" hidden>
-      <p>Starting a new game erases your saved progress. Are you sure?</p>
-      <div class="buttons">
-        <button id="confirm-yes" type="button">Yes, start over</button>
-        <button id="confirm-no" type="button" class="secondary">Cancel</button>
+    <section id="stage" hidden>
+      <div id="hud">
+        <img class="pixel avatar" src="{{ url_for('static', filename='img/px/avatar.png') }}" alt="">
+        <div class="where"><span class="label">Location</span><strong id="place"></strong></div>
+        <ul id="inventory" class="inventory" aria-label="Inventory"></ul>
+        <button id="restart-btn" type="button" class="small secondary">New game</button>
       </div>
+      <div class="screen">
+        <canvas id="screen" width="960" height="576" aria-label="The island. Walk with the arrow keys."></canvas>
+        <div id="dialog" hidden><p id="dialog-text"></p><span class="more">&#9660; SPACE</span></div>
+        <div id="fade"></div>
+      </div>
+      <p id="hint" class="hint"></p>
     </section>
 
-    <section id="game" hidden>
-      <div id="map-box" class="map-box">
-        <div id="map" class="map">
-          <img id="map-img" src="{{ url_for('static', filename='img/map.jpg') }}" alt="Island map">
-          <svg id="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
-          <div id="map-nodes"></div>
-          <img id="token" class="token" src="{{ url_for('static', filename='img/player_token.png') }}" alt="You are here">
-        </div>
-        <p id="map-hint" class="hint"></p>
-      </div>
-
-      <div id="card" class="card">
-        <div id="ending" class="ending" hidden>
-          <p id="ending-code" class="ending-code"></p>
-          <h2 id="ending-title"></h2>
-        </div>
-        <div class="picture">
-          <img id="scene-img" alt="">
-          <img id="prop-img" class="prop" alt="" hidden>
-        </div>
-        <h2 id="scene-name"></h2>
-        <p id="scene-text"></p>
-        <p id="message" class="message" role="status" hidden></p>
-        <p id="error" class="error" role="alert" hidden></p>
-        <div id="actions" class="buttons column"></div>
-
-        <div id="review" hidden>
-          <h3>Review</h3>
-          <ul id="review-list"></ul>
-        </div>
-
-        <div class="inventory-box">
-          <h3>Inventory</h3>
-          <ul id="inventory" class="inventory"></ul>
-        </div>
-        <button id="restart-btn" type="button" class="secondary small">New game</button>
-      </div>
-    </section>
+    <div id="modal" hidden><div id="modal-panel" class="panel"></div></div>
   </main>
+  <script src="{{ url_for('static', filename='world.js') }}"></script>
   <script src="{{ url_for('static', filename='game.js') }}"></script>
 </body>
 </html>

@@ -45,6 +45,18 @@ class AssetFileTests(unittest.TestCase):
             self.assertIn(name, script)
 
 
+class PixelArtFileTests(unittest.TestCase):
+    def test_pixel_pictures_used_by_the_page_exist(self):
+        px = STATIC / "img" / "px"
+        names = ["title.png", "avatar.png", "bus.png", "llama.png", "victory_banner.png",
+                 "item_chug_jug.png", "item_impulse_grenades.png",
+                 "prop_vending_machine.png", "prop_supply_drop.png"]
+        names += [f"hazard_{h}.png" for h in story.HAZARDS]
+        names += [f"ending_{c.lower()}.png" for c in story.ENDINGS]
+        for name in names:
+            self.assertTrue((px / name).is_file(), name)
+
+
 class MapViewTests(unittest.TestCase):
     def play(self, *actions):
         state = game.new_state()
@@ -84,6 +96,12 @@ class MapViewTests(unittest.TestCase):
         self.assertEqual(view["hazard"]["image"], "hazard_H7.jpg")
         self.assertEqual(len(view["choices"]), 3)
         self.assertFalse(any(n["action"] for n in view["map"]["nodes"]))
+
+    def test_decision_choices_carry_their_question(self):
+        view = game.build_view(self.play("land:pleasant_park"))
+        decide = [c for c in view["choices"] if c["id"].startswith("decide:")]
+        self.assertEqual(len(decide), 2)
+        self.assertTrue(all(c["question"] for c in decide))
 
     def test_props_disappear_once_the_item_is_collected(self):
         before = game.build_view(self.play("land:retail_row"))

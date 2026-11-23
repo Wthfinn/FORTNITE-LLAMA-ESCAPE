@@ -17,11 +17,24 @@ Built for the Nova SBE "Introduction to Programming" team project (Plot Twist).
 
 ## How to play
 
-1. Press **New game** and click a place on the map to choose where the Battle Bus drops you.
-2. Click glowing places on the map to move your character between Pleasant Park, Retail Row, Tilted
-   Towers and Polar Peak. Every trip brings a danger with three options. Pick the wrong one and you are
-   eliminated. At each place you can click to make decisions or collect items.
-3. Collect items, make decisions and find the Storm. The items and your choices decide how it ends.
+Everything is played with the keyboard:
+
+| Key | What it does |
+|---|---|
+| Arrow keys or WASD | Walk |
+| SPACE (or Enter, E) | Talk, use what you face, read a sign, close a message |
+| 1, 2, 3 | Choose an option in a menu or a danger card |
+| ESC | Close a menu |
+| M | Sound on or off |
+
+1. Press **New game**. In the Battle Bus press the left and right arrows to pick where to land and SPACE to
+   jump. (Press T to talk to the bus driver first if you like.)
+2. Walk around the town. Signposts show where each path leads (for example "RETAIL ROW"). Walk to the end
+   of a path to travel to the next place. Every trip brings a danger with three options. Pick the wrong
+   one and you are eliminated.
+3. Face things marked with a yellow "!" (a door, the vending machine, the supply drop, tracks on the
+   ground, the lookout) and press SPACE to decide or collect.
+4. Reach the Storm from Polar Peak (you need an item to survive it) and search for your Llama.
 
 Your progress is saved in **your own browser** after every action. Close the page and come back later:
 press **Resume game**. Clearing your browser data deletes the save.
@@ -30,10 +43,17 @@ press **Resume game**. Clearing your browser data deletes the save.
 
 The pictures and sounds come from the team's own asset pack (Fortnite artwork belongs to Epic Games and
 is only used here for a university project). They are in `static/img/` and `static/audio/`.
-Pictures the pack did not contain (island map, Battle Bus sky, Storm, trap, the three ending pictures)
-are composed from the pack's pictures by `tools/make_generated_images.py`. To change them, edit that
-file and run it again (`pip install pillow`, then `python tools/make_generated_images.py`). The game
-itself does not need Pillow.
+
+- The walking world (grass, paths, houses, trees, signs, snow, the pink storm fog and the player) is
+  drawn in code in `static/world.js`, as 16x16 pixel tiles.
+- The danger cards, ending pictures and item sprites are pixel versions of the pack's pictures
+  (`static/img/px/`), made by `tools/make_pixel_art.py`.
+- A few pictures the pack did not contain (trap, endings, Storm) are composed from the pack's pictures
+  by `tools/make_generated_images.py`.
+
+To change the pictures, edit the tool and run it again (`pip install pillow`, then
+`python tools/make_generated_images.py` followed by `python tools/make_pixel_art.py`). The game itself
+does not need Pillow.
 
 ## Run it locally
 
@@ -75,8 +95,10 @@ invalid requests, security headers).
 | `story.py` | The story as data: scenes, items, decisions, hazards, endings. No logic. |
 | `game.py` | The rules. Checks that an action is allowed, then returns a new game state. |
 | `app.py` | Small Flask web server. Receives the saved state and an action, asks `game.py`, sends back the result. |
-| `templates/index.html`, `static/` | The page the player sees. Saves the state in the browser (localStorage). |
-| `tools/make_generated_images.py` | Optional helper that composes the extra pictures. |
+| `templates/index.html`, `static/style.css` | The page around the game screen. |
+| `static/world.js` | The walking world: tiles, the five town maps, signposts, exits, the player sprite. |
+| `static/game.js` | Keyboard, drawing, menus and danger cards. Talks to the server and saves the state in the browser (localStorage). |
+| `tools/` | Optional helpers that make the pixel pictures. |
 | `tests/` | Automated tests (rules, web server, and that every picture and sound exists). |
 | `concept.md` | The game design (concepts, map, items, decisions, hazards, endings, data model). |
 

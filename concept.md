@@ -1,6 +1,6 @@
 # Plot Twist – "Where's My Llama?" · Conceptual Foundation
 
-Draft v0.5 · 23 Nov 2026 · based on the Plot Twist BRD v1.0
+Draft v0.6 · 23 Nov 2026 · based on the Plot Twist BRD v1.0
 
 This document tells us **what** we build and **what we don't** before we write any code.
 It stays at the complexity of the BRD on purpose.
@@ -346,3 +346,25 @@ Two shortcuts keep the state small:
 
 **Still open**
 1. Final scene, hazard and ending texts (current texts are placeholders in `story.py`).
+
+---
+
+## 14. The walking world (version 0.6)
+
+The game is now a top-down, Pokemon-style walking game. The rules in sections 1 to 12 did not change;
+only how the player moves and chooses did.
+
+- **Bus:** a sky screen. Left/right picks the landing spot, SPACE jumps (`land:<place>`). T talks to the
+  bus driver (decision D1).
+- **Towns:** Pleasant Park, Retail Row, Tilted Towers and Polar Peak are four walkable screens
+  (20 x 12 tiles). Each has three signposted paths. **Walking onto the end of a path is the "travel"
+  action** (`travel:<place>`): the server answers with a hazard (danger card) or lets you arrive.
+- **Things to use:** the house door (D2), tracks on the ground (D3), the dance floor (D4), the lookout
+  (D5), the vending machine and the supply drop. Face them and press SPACE; a menu with the options
+  appears (number keys choose).
+- **Storm:** the top of Polar Peak is a purple gate. Without an item the server refuses ("You won't last a
+  second in the storm without gear"), nothing changes and the player is moved one step back. With an
+  item the player enters the pink, foggy Storm room and searches for the Llama (SPACE).
+- **Not part of the saved game:** the player's exact position. After resuming, the player stands at the
+  start tile of the saved place. Everything the rules care about (place, items, decisions, hazards,
+  ending) is saved as before.

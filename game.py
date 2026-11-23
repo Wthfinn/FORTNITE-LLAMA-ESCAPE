@@ -251,6 +251,8 @@ def build_view(state, message=""):
         choice = dict(action)
         if action["id"].startswith("collect:"):
             choice["image"] = story.ITEMS[action["id"].split(":")[1]]["prop"]
+        elif action["id"].startswith("decide:"):
+            choice["question"] = story.DECISIONS[action["id"].split(":")[1]]["question"]
         choices.append(choice)
 
     props = [
