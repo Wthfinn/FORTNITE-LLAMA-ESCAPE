@@ -61,8 +61,8 @@ const readSigns = new Set(); // signs that were read (their "!" goes away)
 const held = [];           // arrow keys currently held, last one wins
 const player = { tx: 0, ty: 0, fx: 0, fy: 0, last: [0, 0], dir: "down", moving: false, prog: 0, step: 0 };
 const bus = { phase: "intro", t0: 0, sel: 0, jumping: false, jt: 0 };   // jt: seconds since the jump started
-const landing = { active: false, t: 0, dur: 1900 };    // the player floats down on a parachute
-const drop = { active: false, t: 0, dur: 3400 };       // the supply drop floats down (first visit only)
+const landing = { active: false, t: 0, dur: 2600 };    // the player floats down on a parachute
+const drop = { active: false, t: 0, dur: 4400 };       // the supply drop floats down (first visit only)
 const dance = { active: false, t: 0, dur: 7000 };
 const cutscene = { active: false, t: 0, def: null, onDone: null };   // an elimination film
 const itemFly = { active: false, t: 0, dur: 1700, sprite: null, from: null };   // an item flies into the backpack
@@ -71,7 +71,7 @@ const talkCount = new Map();   // which line each character says next
 let chugAsked = false;         // the Chug Jug offer is shown once per drop below 20 health
 let hudPop = null;             // the item that just landed in the backpack (its icon pops)
 let health = 100;              // only goes down inside the storm
-let extras = { tiltedSeen: false, health: 100, death: null };   // death: which elimination card to show
+let extras = { tiltedSeen: false, health: 100, death: null, deathWhere: null };   // death: which elimination card to show (and in which setting)
 let lastExtrasSave = 0;
 
 const DROP_TOP = 24, DROP_ROW = 86;     // where the four location pictures sit on the drop screen
@@ -124,6 +124,7 @@ function loadExtras() {
     tiltedSeen: Boolean(saved && saved.tiltedSeen),
     health: saved && typeof saved.health === "number" ? Math.max(0, Math.min(100, saved.health)) : 100,
     death: saved && typeof saved.death === "string" ? saved.death : null,
+    deathWhere: saved && typeof saved.deathWhere === "string" ? saved.deathWhere : null,
   };
 }
 function saveExtras() {
@@ -483,10 +484,18 @@ function showChugPrompt() {
 // The danger alarm plays for 6 seconds while the card is up. The options can only be chosen when it
 // has finished (so the player hears the warning first); a bar shows how long. With the sound off there is no wait.
 const ALARM_SECONDS = 6;
+// Which town's setting surrounds a danger: it sits at the far end of its path (the icy ones always in Polar Peak).
+function hazardTownOf(v) {
+  if (path && path.def && path.def.hazardTown) return path.def.hazardTown;
+  if (ICY_HAZARDS.includes(v.hazard.id)) return "polar_peak";
+  return v.map && v.map.token_at ? v.map.token_at : "tilted_towers";
+}
+
 function showHazard(v) {
+  FX.where = FX.settingOf(hazardTownOf(v));
   const panel = openModal("hazard");
   panel.appendChild(el("h2", "", "Danger!"));
-  panel.appendChild(hazardPicture(v.hazard.id, sprites) || pxImage(v.hazard.image));     // H6 keeps its old picture until it is redesigned
+  panel.appendChild(hazardPicture(v.hazard.id, sprites) || pxImage(v.hazard.image));
   panel.appendChild(el("p", "question", v.hazard.situation));
   const buttons = v.choices.map((choice) => addOption(panel, choice.label, () => {
     closeModal();
@@ -534,6 +543,7 @@ function showHazard(v) {
 
 function showEnding(v) {
   const panel = openModal("ending ending-" + v.ending.code.toLowerCase());
+  FX.where = extras.deathWhere || "tilted";                                // the setting where it happened
   const card = v.ending.code !== "A" && ELIMINATIONS[extras.death];       // the elimination card has its own big banner
   if (!card || v.ending.code !== "C") panel.appendChild(el("h2", "", v.ending.title));
   panel.appendChild(card ? eliminationCard(extras.death) : pxImage(v.ending.image));
@@ -851,8 +861,11 @@ function afterAction(actionId, before, fromScene) {
   if (view.status === "ended") {
     resetDialogs();
     closeModal();
-    if (actionId.startsWith("hazard:") && before && before.hazard) extras.death = before.hazard.id;
-    else if (actionId === "storm_timeout") extras.death = "B";
+    if (actionId.startsWith("hazard:") && before && before.hazard) {
+      extras.death = before.hazard.id;
+      extras.deathWhere = FX.settingOf(hazardTownOf(before));
+      FX.where = extras.deathWhere;                                        // the film shows the place where he died
+    } else if (actionId === "storm_timeout") extras.death = "B";
     saveExtras();
     if (actionId === "search") {                                  // landed next to the Llama in time
       finaleHug();
@@ -953,7 +966,7 @@ function finaleHug() {
   showDialog(good ? HUG_GOOD : HUG_BAD, () => {
     finale.phase = null;
     if (good) {
-      startCutscene({ dur: 3.8, caption: "", draw: (c, t) => drawStormEscape(c, t, sprites) },
+      startCutscene({ dur: 4.6, caption: "", draw: (c, t) => drawStormEscape(c, t, sprites) },
         () => { soundsFor(finale.before, view); showEnding(view); });
     } else {
       soundsFor(finale.before, view);
@@ -1181,7 +1194,7 @@ async function startNewGame() {
   state = result.data.state;
   view = result.data.view;
   writeSave(state);
-  extras = { tiltedSeen: false, health: 100, death: null };
+  extras = { tiltedSeen: false, health: 100, death: null, deathWhere: null };
   health = 100;
   saveExtras();
   visited.clear();
@@ -1485,9 +1498,7 @@ function drawObjectSprite(o, done, t) {
   if (o.sprite === "prop_supply_drop") {
     if (drop.active) {                          // floating down on its balloon
       const p = easeOut(Math.min(1, drop.t / drop.dur));
-      const y = -h + (oy + T) * p;
-      pixelEllipse(b, ox + 8, oy + 13, 4 + 6 * p, 2 + 3 * p, "rgba(0,0,0," + (0.1 + 0.2 * p).toFixed(2) + ")");
-      b.drawImage(img, x + Math.round(Math.sin(t / 300) * 2 * (1 - p)), Math.round(y));
+      SKY.supplyDrop(b, ox + 8, oy + T - 5, p, t / 1000);
     } else {                                    // landed: only the crate is left
       const crate = Math.round(h * 0.34);
       b.drawImage(img, 0, h - crate, w, crate, x, oy + T - crate, w, crate);
@@ -1514,21 +1525,25 @@ function drawThePlayer(x, y, t) {
       return;
     }
     const p = Math.min(1, (finale.t - 0.6) / 1.5);
-    const e = p * p * (3 - 2 * p);
-    drawPlayer(b, Math.round(sx + (ex - sx) * e), Math.round(sy + (ey - sy) * p - Math.sin(Math.PI * p) * 70), "down", 0, "fall", t);
+    const at = (q) => { const eq = q * q * (3 - 2 * q); return [Math.round(sx + (ex - sx) * eq), Math.round(sy + (ey - sy) * q - Math.sin(Math.PI * q) * 70)]; };
+    for (let k = 9; k >= 1; k--) {                                    // a glowing trail of the Impulse Grenade's blast follows him
+      const [qx, qy] = at(Math.max(0, p - k * 0.045));
+      pixelEllipse(b, qx + 8, qy + 12, 6 - k * 0.45, 6 - k * 0.45, "rgba(150,230,255," + Math.max(0, 0.4 - k * 0.04).toFixed(2) + ")");
+      if (k % 2) px(b, qx + 6 + (k * 5) % 6, qy + 8 + (k * 3) % 8, 2, 2, "#ffffff");
+    }
+    const [hx, hy] = at(p);
+    pixelEllipse(b, hx + 8, hy + 12, 14, 14, "rgba(190,150,255,0.25)");
+    drawPlayer(b, hx, hy, "down", 0, "fall", t);
+    for (let k = 0; k < 6; k++) px(b, hx + 2 + k * 3, hy - 8 - (k % 3) * 5, 1, 7, "rgba(255,255,255,0.6)");      // wind lines above him
+    if (p > 0.9) for (let k = 0; k < 6; k++) pixelEllipse(b, ex + 8 - 16 + k * 6, ey + 14 - (p - 0.9) * 40 * (k % 2 + 1), 3 + (p - 0.9) * 30, 1 + (p - 0.9) * 10, "rgba(210,190,255," + (0.7 * (1 - (p - 0.9) * 8)).toFixed(2) + ")");   // dust where he lands
     return;
   }
   if (landing.active) {                         // floating down on a parachute
     const p = easeOut(Math.min(1, landing.t / landing.dur));
-    const lift = (1 - p) * (ty + 40);
-    const chute = p < 0.93;
-    if (chute) {
-      const cy = ty - lift - 30;
-      ellipse(b, tx + 8, cy + 6, 14, 7, "#ff5fa8");
-      ellipse(b, tx + 8, cy + 4, 10, 4, "#ff8fc8");
-      px(b, tx + 2, cy + 9, 1, 14, "#f4f4f4"); px(b, tx + 14, cy + 9, 1, 14, "#f4f4f4");
-    }
+    const lift = (1 - p) * (ty + 60);
+    SKY.landing(b, tx, ty, p, t / 1000);                         // the glider, its shadow and the dust
     drawPlayer(b, tx, Math.round(ty - lift), "down", 0, "walk", t);
+    if (p > 0.9) for (let k = 0; k < 5; k++) pixelEllipse(b, tx + 8 - 14 + k * 7, ty + 14 - (p - 0.9) * 20 * (k % 2 + 1), 3 + (p - 0.9) * 20, 1 + (p - 0.9) * 8, "rgba(220,205,170," + (0.7 * (1 - (p - 0.9) * 8)).toFixed(2) + ")");
     return;
   }
   drawPlayer(b, tx, ty, player.dir, player.step, dance.active ? "dance" : "walk", t);
@@ -1536,7 +1551,10 @@ function drawThePlayer(x, y, t) {
 
 function drawWorld(t) {
   b.drawImage(layer, 0, 0);
+  if (scene === "path" && path) drawPathBelow(t);
+  if (dance.active) SKY.disco(b, t / 1000, player.tx * T + 8, player.ty * T + 8, Math.min(1, dance.t / 600, (dance.dur - dance.t) / 600));
   drawActors(t);
+  if (scene === "path" && path) drawPathAbove(t);
   if (scene === "storm") {
     drawStormOverlay(t);
     if (!landing.active && !itemFly.active && !finale.phase) drawExitArrows(t);       // the arrow back out of the Storm
@@ -1548,7 +1566,7 @@ function drawWorld(t) {
 
 function drawBusScene(t) {
   if (bus.jumping) {                                              // jumping out of the bus: a little film
-    drawBusJump(b, Math.min(bus.jt, BUS_JUMP_SECONDS + 0.5), sprites.bus);
+    drawBusJump(b, Math.min(bus.jt, BUS_JUMP_SECONDS + 0.5));
     return;
   }
   const sky = ["#2f7fe0", "#3a8ae6", "#4a96ea", "#5ca4ee", "#74b4f2", "#8cc4f6", "#a6d4fa", "#c4e4fc"];
@@ -1558,12 +1576,8 @@ function drawBusScene(t) {
     pixelEllipse(b, x, 22 + (i * 23) % 150, 26 + (i % 3) * 8, 7 + (i % 2) * 2, "#ffffff");
     pixelEllipse(b, x + 18, 26 + (i * 23) % 150, 16, 5, "#e8f4ff");
   }
-  if (bus.phase !== "select") {                                   // the big Battle Bus
-    const img = sprites.bus;
-    if (img.complete && img.naturalWidth) {
-      const bob = Math.round(Math.sin(t / 500) * 3);
-      b.drawImage(img, Math.round(VIEW_W / 2 - img.naturalWidth / 2), 10 + bob);
-    }
+  if (bus.phase !== "select") {                                   // the big Battle Bus flying over the island
+    SKY.busIntro(b, t / 1000);
     return;
   }
   BUS_ZONES.forEach((zone, i) => {                                // the four drop locations
@@ -1644,6 +1658,92 @@ function drawLabels(t) {
     outlineText(ctx, banner.text.toUpperCase(), canvas.width / 2, 34, "#ffd23f", 24);
     ctx.globalAlpha = 1;
   }
+}
+
+// ---------- life on the paths between the places ----------
+// Everything here moves a little: cloud shadows gliding over the ground, falling leaves and butterflies in the
+// meadow, steam and blowing litter in town, snowfall and sparkling ice in the mountains, and now and then the
+// shadow of the Battle Bus or a supply drop sliding over the whole map. Each half of the path follows its own setting.
+
+function pathSides() {
+  return [{ pal: BIOMES[path.left].pal, x0: 0, x1: 10 * T }, { pal: BIOMES[path.right].pal, x0: 10 * T, x1: COLS * T }];
+}
+
+function drawPathBelow(t) {                                    // on the ground, under the characters
+  const sec = t / 1000;
+  for (let i = 0; i < 3; i++) {                                // soft cloud shadows drift across
+    const cx = ((i * 150 + sec * (5 + i * 2)) % (COLS * T + 140)) - 70, cy = 38 + i * 62;
+    pixelEllipse(b, Math.round(cx), cy, 56, 22, "rgba(20,30,70,0.07)"); pixelEllipse(b, Math.round(cx + 18), cy + 6, 36, 14, "rgba(20,30,70,0.05)");
+  }
+  pathSides().forEach((side) => {
+    if (side.pal === "pleasant") {                             // grass swaying and a few butterflies' shadows
+      for (let k = 0; k < 14; k++) {
+        const gx = side.x0 + hash(k, 1, 90) % (side.x1 - side.x0), gy = 8 + hash(k, 2, 90) % 170, sw = Math.round(Math.sin(sec * 2 + k) * 1);
+        px(b, gx + sw, gy - 4, 1, 4, "#3f8a30"); px(b, gx + 2 + sw, gy - 5, 1, 5, "#5aa238");
+      }
+    } else if (side.pal === "retail" || side.pal === "tilted") {   // steam from the vents and puddle ripples
+      [[2, 5], [7, 9]].forEach(([vx, vy], k) => {
+        const ox = side.x0 + vx * T + 8;
+        for (let q = 0; q < 5; q++) {
+          const ph = (sec * 0.5 + q / 5 + k * 0.3) % 1;
+          pixelEllipse(b, Math.round(ox + Math.sin(sec + q) * 3 + ph * 6), Math.round(vy * T - ph * 26), Math.round(3 + ph * 6), Math.round(2 + ph * 4), "rgba(235,235,245," + (0.3 * (1 - ph)).toFixed(2) + ")");
+        }
+      });
+    }
+  });
+}
+
+function drawPathAbove(t) {                                    // in the air, over the characters
+  const sec = t / 1000;
+  pathSides().forEach((side, s) => {
+    const w = side.x1 - side.x0;
+    if (side.pal === "pleasant") {
+      for (let i = 0; i < 9; i++) {                            // leaves float down from the trees
+        const lx = side.x0 + ((hash(i, s, 91) % w) + Math.sin(sec * 1.4 + i) * 10 + w) % w, ly = ((hash(i, s, 92) % 190) + sec * (9 + i % 3 * 4)) % 196 - 4;
+        px(b, Math.round(lx), Math.round(ly), 2, 2, ["#6ac04a", "#e0a030", "#c0602a"][i % 3]); px(b, Math.round(lx) + 1, Math.round(ly) + 1, 1, 1, "#3f8a30");
+      }
+      for (let i = 0; i < 3; i++) {                            // butterflies
+        const bx = side.x0 + w / 2 + Math.sin(sec * 0.6 + i * 2 + s) * (w / 2.4), by = 60 + i * 38 + Math.cos(sec * 0.9 + i) * 18, flap = Math.floor(sec * 8 + i) % 2;
+        px(b, Math.round(bx) - (flap ? 2 : 1), Math.round(by), flap ? 2 : 1, 2, ["#ffd23f", "#ff8fc8", "#ffffff"][i]); px(b, Math.round(bx) + 1, Math.round(by), flap ? 2 : 1, 2, ["#ffd23f", "#ff8fc8", "#ffffff"][i]); px(b, Math.round(bx), Math.round(by), 1, 2, "#2a1a3a");
+      }
+      for (let i = 0; i < 6; i++) { const sx = side.x0 + ((hash(i, s, 93) % w) + sec * 6) % w, sy = 40 + hash(i, s, 94) % 120 - Math.sin(sec + i) * 6; px(b, Math.round(sx), Math.round(sy), 1, 1, "rgba(255,255,255,0.8)"); }   // seeds drifting by
+    } else if (side.pal === "polar") {
+      for (let i = 0; i < 44; i++) {                           // falling snow
+        const fx = side.x0 + ((hash(i, s, 95) % w) + sec * (10 + i % 4 * 5) + Math.sin(sec + i) * 4 + w * 2) % w, fy = ((hash(i, s, 96) % 200) + sec * (22 + i % 5 * 10)) % 204 - 6;
+        px(b, Math.round(fx), Math.round(fy), i % 3 ? 1 : 2, i % 3 ? 1 : 2, "rgba(255,255,255,0.9)");
+      }
+      for (let i = 0; i < 10; i++) if (Math.sin(sec * 3 + i * 1.7) > 0.7) { const sx = side.x0 + hash(i, s, 97) % w, sy = 10 + hash(i, s, 98) % 170; px(b, sx - 2, sy, 5, 1, "#ffffff"); px(b, sx, sy - 2, 1, 5, "#ffffff"); }   // ice sparkles
+      pixelEllipse(b, Math.round(side.x0 + ((sec * 8) % (w + 80)) - 40), 120, 50, 8, "rgba(255,255,255,0.12)");   // a bank of drifting mist
+    } else {
+      for (let i = 0; i < 2; i++) {                            // litter blowing down the street
+        const lx = side.x0 + ((hash(i, s, 99) % w) + sec * (24 + i * 9)) % w, ly = 100 + i * 50 + Math.sin(sec * 3 + i) * 5;
+        px(b, Math.round(lx), Math.round(ly), 3, 2, "#e8e4d0"); px(b, Math.round(lx) + 1, Math.round(ly), 1, 1, "#c0392b");
+      }
+      for (let i = 0; i < 3; i++) {                            // pigeons peck at the ground and flutter
+        const bx = side.x0 + 20 + hash(i, s, 100) % (w - 40), by = 40 + hash(i, s, 101) % 120, pk = Math.floor(sec * 2 + i) % 3 === 0;
+        px(b, bx, by + (pk ? 1 : 0), 4, 3, "#9a9eae"); px(b, bx + 3, by - 1 + (pk ? 2 : 0), 2, 2, "#7a7e8e"); px(b, bx + 5, by + (pk ? 2 : 0), 1, 1, "#f2b25a");
+      }
+      for (let i = 0; i < 12; i++) px(b, side.x0 + ((hash(i, s, 102) % w) + sec * 4) % w, 20 + hash(i, s, 103) % 150, 1, 1, "rgba(255,240,200,0.5)");   // dust in the light
+    }
+  });
+  const busT = (sec % 46) / 7;                                 // the Battle Bus, high above, throws a shadow across the map
+  if (busT < 1) {
+    const bx = lerp(-70, COLS * T + 70, busT), by = lerp(10, 150, busT), a = 0.15 * Math.sin(Math.PI * busT);
+    pixelEllipse(b, Math.round(bx), Math.round(by) - 12, 12, 12, "rgba(10,10,40," + a.toFixed(2) + ")");              // the balloon
+    px(b, Math.round(bx) - 14, Math.round(by), 28, 8, "rgba(10,10,40," + a.toFixed(2) + ")"); px(b, Math.round(bx) - 22, Math.round(by) + 2, 12, 3, "rgba(10,10,40," + a.toFixed(2) + ")");
+  }
+  const dropT = ((sec + 23) % 58) / 12;                        // and now and then a supply drop sinks past
+  if (dropT < 1) {
+    const dx = 60 + hash(Math.floor((sec + 23) / 58), 7, 104) % 200, dy = lerp(-30, 220, dropT), a = 0.14 * Math.sin(Math.PI * dropT);
+    pixelEllipse(b, dx, Math.round(dy) - 10, 9, 7, "rgba(10,10,40," + a.toFixed(2) + ")"); px(b, dx - 4, Math.round(dy), 8, 6, "rgba(10,10,40," + a.toFixed(2) + ")");
+  }
+  pathVignette();
+}
+
+function pathVignette() {                                        // a soft dark edge, a little warmer in the meadow and colder in the snow
+  const g2 = b.createRadialGradient((COLS * T) / 2, (ROWS * T) / 2, 90, (COLS * T) / 2, (ROWS * T) / 2, 220);
+  g2.addColorStop(0, "rgba(0,0,0,0)"); g2.addColorStop(1, "rgba(10,10,30,0.22)");
+  b.fillStyle = g2; b.fillRect(0, 0, (COLS * T), (ROWS * T));
 }
 
 // ---------- the loop ----------

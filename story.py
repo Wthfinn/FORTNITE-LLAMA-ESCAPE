@@ -191,11 +191,11 @@ HAZARDS = {
     },
     "H6": {
         "path": ("tilted_towers", "retail_row"), "order": 2,
-        "situation": "A doorway looks suspiciously clean.",
+        "situation": "A glowing Launch Pad sits in the middle of the road, aimed straight at the sky.",
         "options": [
-            {"text": "Enter through the window", "deadly": False, "survive": "You enter through the window like a professional burglar. The doorway trap is left waiting, offended."},
-            {"text": "Walk right in", "deadly": True},
-            {"text": "Shoot the doorway first", "deadly": False, "survive": "You shoot the doorway first. BOOM. Turns out it was wired to explode. Nice trick, past you."},
+            {"text": "Walk around it", "deadly": False, "survive": "You walk around it like a polite pedestrian. The Launch Pad pulses sadly, desperate for a passenger. You do not look back."},
+            {"text": "Hop on it", "deadly": True},
+            {"text": "Shoot the pad", "deadly": False, "survive": "You shoot the pad. It launches itself skyward, spins twice and lands in a dumpster two blocks away. Nobody will ever believe you."},
         ],
     },
     "H9": {

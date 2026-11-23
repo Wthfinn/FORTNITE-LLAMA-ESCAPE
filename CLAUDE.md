@@ -43,8 +43,16 @@ update it when the team changes the design.
   Ending C is only for deadly path hazards. The 3 earlier decisions no longer change the ending. The health bar
   pulses 3 times on entering the storm. The Chug Jug can be drunk
   once in the storm (server action `use_chug_jug`, +50 health in the page). Details: `concept.md` sections 15 and 16.
-- **Danger card pictures:** `static/hazardpics.js` draws one still pixel picture per danger (all except H6, which is being
-  redesigned and still shows its old picture). Ending cards have no "ENDING X" label; a hazard death shows no decision list.
+- **Danger card pictures:** `static/hazardpics.js` draws one still pixel picture per danger. Ending cards have no "ENDING X"
+  label; a hazard death shows no decision list. The Launch Pad (H6) is drawn by `drawLaunchPad` in `static/world.js`, used on
+  the path, the danger card, the death film and the elimination card.
+- **Settings match the path:** a danger sits at the far end of its path (icy ones always in Polar Peak), so the films, danger
+  pictures and elimination cards are drawn in the setting there (`FX.where`: meadow, tilted, retail or snow, bright daytime like the
+  paths). The page sets it from `path.def.hazardTown`; `extras.deathWhere` remembers it. The walking paths have extra texture
+  (`pathTexture` in `static/world.js`) and moving life (`drawPathBelow/Above` in `static/game.js`).
+- **Sky scenes:** `static/sky.js` has the Battle Bus (blue-and-white balloon over a battered blue bus), the umbrella glider, the
+  6-second jump film (`drawBusJump`), the glider landings, the supply drop, the title picture, the dance disco and the
+  flight out of the Storm, all with the same cinematic camera as the death films and no spoken words.
 - **Death films:** `static/films.js` has the 12 elimination films (camera push-ins, screen shake, black bars, fades,
   no talking, only pictures). `cinematic()` wraps every film. The hazard alarm lasts 6 seconds (`ALARM_SECONDS`).
 - **Elimination cards:** `static/eliminations.js` draws one pixel picture per way of losing (12 hazard deaths + the

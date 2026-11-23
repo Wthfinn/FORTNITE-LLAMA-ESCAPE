@@ -153,51 +153,115 @@ FX.lamp = (c, x, y, on, t) => {                  // a street lamp
   if (on) FX.glow(c, x + 1, y - 38, 22, "255,226,140", 0.45 + 0.05 * Math.sin(t * 7));
 };
 
-// ---------- the places ----------
+// ---------- the places: the same bright daytime scenery the player walks through on the paths ----------
+// A danger sits at the far end of its path, so what is around it depends on where the player is walking to.
+// FX.where says which setting the film, picture or card must show: "meadow" (Pleasant Park), "tilted" (Tilted Towers),
+// "retail" (Retail Row) or "snow" (Polar Peak). The page sets it before it shows anything.
 
-FX.meadow = (c, t, o) => {                       // a grassy path at golden hour (Pleasant Park)
-  o = o || {};
-  band(c, 0, 130, o.sky || ["#3a2a6a", "#6a3a7a", "#b24a6a", "#e8704a", "#f6a050", "#fbd080"]);
-  const sx = o.sunX || 250, sy = o.sunY || 108;
-  FX.glow(c, sx, sy, 60, "255,230,160", 0.5); ellipse(c, sx, sy, 18, 18, "#fff0c0"); ellipse(c, sx, sy, 13, 13, "#ffffff");
-  FX.rays(c, sx, sy, t, "255,230,160", 7);
-  FX.clouds(c, t, 30, "255,190,170", 3, 4, 1);
-  FX.ridge(c, 118, 7, 1, "#5a3a78", 0.03); FX.ridge(c, 128, 5, 3, "#3f4a6a", 0.05);
-  FX.trees(c, t, 140, 2, ["#244a34", "#2f6a40"], 14);
-  band(c, 138, SH, ["#4a7a3a", "#427030", "#3a6428", "#325a22"]);
-  for (let x = 0; x < SW; x += 22) { px(c, x, 142, 2, 12, "#6a4a2a"); } px(c, 0, 145, SW, 2, "#7a5a3a"); px(c, 0, 150, SW, 2, "#7a5a3a");      // a wooden fence
-  px(c, 0, 158, SW, 22, "#a8864c"); px(c, 0, 158, SW, 2, "#c4a064"); px(c, 0, 178, SW, 2, "#7a5e34");
-  for (let x = 0; x < SW; x += 9) px(c, x + hash(x, 1, 5) % 5, 162 + hash(x, 2, 5) % 14, 3, 1, "#c8a870");
-  FX.grass(c, t, 180, 192, "#4a8a3a", "#6aaa4a");
-  FX.birds(c, t, 28, 5, 14, 3);
-  for (let i = 0; i < 4; i++) { const bx = (t * 14 + i * 90) % 340 - 10, by = 120 + Math.sin(t * 3 + i) * 6; px(c, Math.round(bx), Math.round(by), 2, 1, i % 2 ? "#ffd23f" : "#ffffff"); }      // butterflies
+FX.where = "city";
+FX.settingOf = (town) => ({ pleasant_park: "meadow", tilted_towers: "tilted", retail_row: "retail", polar_peak: "snow" }[town] || "tilted");
+
+FX.daySky = ["#5fb0ee", "#7cc2f4", "#98d2f8", "#b6e2fb", "#d4f0fd"];
+
+FX.dayMeadow = (c, t) => {                       // Pleasant Park: grass, trees, a wooden fence and a dirt path
+  band(c, 0, 132, FX.daySky);
+  FX.glow(c, 262, 38, 50, "255,250,200", 0.4); ellipse(c, 262, 38, 12, 12, "#fff7c8"); ellipse(c, 262, 38, 8, 8, "#ffffff");
+  FX.clouds(c, t, 22, "255,255,255", 4, 4, 1);
+  FX.ridge(c, 112, 6, 1, "#9ab8d8", 0.03); FX.ridge(c, 124, 5, 3, "#78a89a", 0.05);
+  FX.trees(c, t, 142, 2, ["#2f7a3c", "#46a04e"], 14);
+  band(c, 138, SH, ["#6ab648", "#62ac40", "#5aa238", "#52982f"]);
+  for (let i = 0; i < 70; i++) px(c, hash(i, 1, 60) % SW, 140 + hash(i, 2, 60) % 18, 2, 2, ["#ffe14a", "#ff8fc8", "#ffffff", "#ffb347"][i % 4]);        // flowers
+  for (let x = 0; x < SW; x += 22) px(c, x, 142, 2, 12, "#8a6038");
+  px(c, 0, 145, SW, 2, "#a8784a"); px(c, 0, 150, SW, 2, "#a8784a");
+  px(c, 0, 158, SW, 24, "#c8a36a"); px(c, 0, 158, SW, 2, "#dcb87c"); px(c, 0, 180, SW, 2, "#9a7a44");
+  for (let x = 0; x < SW; x += 9) px(c, x + hash(x, 1, 5) % 5, 162 + hash(x, 2, 5) % 14, 3, 1, "#a8884e");
+  FX.grass(c, t, 150, 158, "#3f9a35", "#6ac04a"); FX.grass(c, t, 182, 192, "#4a8a3a", "#6aaa4a");
+  FX.birds(c, t, 24, 5, 14, 3, "#3a3a4a");
+  for (let i = 0; i < 4; i++) { const bx = (t * 14 + i * 90) % 340 - 10, by = 124 + Math.sin(t * 3 + i) * 6; px(c, Math.round(bx), Math.round(by), 2, 1, i % 2 ? "#ffd23f" : "#ffffff"); }
 };
 
-FX.city = (c, t, o) => {                         // a street at dusk (Tilted Towers, Retail Row)
-  o = o || {};
-  band(c, 0, 140, o.sky || ["#241048", "#3a1a62", "#6a2a78", "#a8386e", "#e0584e", "#f4864a"]);
-  FX.clouds(c, t, 24, "200,120,150", 3, 3, 2);
-  [[0, 96, 30, 60], [26, 80, 34, 76], [58, 104, 28, 52], [88, 86, 32, 70], [118, 100, 26, 56], [260, 90, 30, 66], [290, 74, 34, 82]].forEach(([x, y, w, h], i) => {   // far buildings
-    px(c, x, y, w, h, "#3a2552"); px(c, x, y, w, 2, "#51396f");
-    for (let wy = y + 6; wy < y + h - 4; wy += 9) for (let wx = x + 4; wx < x + w - 5; wx += 8) px(c, wx, wy, 3, 4, hash(wx + wy, i, 6) % 5 === 0 ? "#ffe28a" : "#2a1f40");
+FX.dayCity = (c, t, where) => {                  // Tilted Towers (tall brick and glass) or Retail Row (low shops with awnings)
+  band(c, 0, 140, FX.daySky);
+  FX.glow(c, 262, 36, 46, "255,250,200", 0.35); ellipse(c, 262, 36, 11, 11, "#fff7c8");
+  FX.clouds(c, t, 22, "255,255,255", 4, 3, 2);
+  [[0, 90, 36], [30, 70, 34], [62, 98, 30], [92, 80, 36], [128, 96, 28], [262, 84, 30], [292, 68, 34]].forEach(([x, y, w], i) => {   // hazy buildings far away
+    px(c, x, y + 8, w, 60, "#9aa8c4"); px(c, x, y + 8, w, 2, "#b4c0d8");
+    for (let wy = y + 14; wy < y + 60; wy += 8) for (let wx = x + 4; wx < x + w - 4; wx += 8) px(c, wx, wy, 3, 4, hash(wx + wy, i, 6) % 4 === 0 ? "#d8e4f4" : "#8896b4");
   });
-  px(c, 0, 144, SW, SH - 144, "#4a4558"); px(c, 0, 144, SW, 3, "#6a6578");
-  for (let x = 8; x < SW; x += 44) px(c, x, 170, 24, 2, "#d8d4c4");
-  px(c, 0, 144, SW, 1, "rgba(255,200,140,0.35)");
-  FX.birds(c, t, 22, 4, 10, 4);
+  const retail = where === "retail";
+  const row = retail ? [[0, 44, 52, "#d85a4a"], [52, 52, 46, "#2f9e4f"], [98, 40, 56, "#e0b030"], [210, 48, 52, "#3a6fe0"], [262, 56, 58, "#d85a4a"]]
+    : [[0, 96, 46, "#a8553c"], [46, 112, 40, "#8c8f99"], [86, 90, 48, "#b09a78"], [212, 106, 44, "#8c8f99"], [256, 120, 64, "#a8553c"]];
+  row.forEach(([x, h, w, col], i) => {                                                                       // the buildings along the street
+    const top = 146 - h;
+    px(c, x, top, w, h, col); px(c, x, top, w, 4, "rgba(255,255,255,0.35)"); px(c, x + w - 3, top, 3, h, "rgba(0,0,0,0.18)");
+    if (retail) {
+      for (let k = 0; k < w; k += 6) px(c, x + k, top + 18, 3, 8, k % 12 ? "#ffffff" : col);                    // a striped awning
+      px(c, x + 4, top + 28, w - 8, h - 34, "#9fd8f4"); px(c, x + 4, top + 28, w - 8, 2, "#d8f0ff"); px(c, x + w / 2 - 1, top + 28, 2, h - 34, "#4a4f5e");
+      px(c, x + 4, top + 8, w - 8, 8, "#14101c"); px(c, x + 6, top + 10, w - 12, 4, "#ffd23f");
+    } else {
+      for (let wy = top + 10; wy < 138; wy += 13) for (let wx = x + 5; wx < x + w - 6; wx += 10) {
+        px(c, wx - 1, wy - 1, 8, 10, "#4a3a2e"); px(c, wx, wy, 6, 8, hash(wx + wy, i, 9) % 5 === 0 ? "#ffe28a" : "#8fd0f0"); px(c, wx + 3, wy, 1, 8, "#4a3a2e");
+      }
+    }
+  });
+  px(c, 0, 144, SW, 9, "#b8b4a8"); px(c, 0, 144, SW, 2, "#d8d4c8"); px(c, 0, 151, SW, 2, "#8a867a");           // the sidewalk and its kerb
+  for (let x = 0; x < SW; x += 16) px(c, x, 146, 1, 6, "#a09c90");
+  px(c, 0, 153, SW, 39, "#5a5f72"); px(c, 0, 153, SW, 1, "#7a7f92");                                         // the road
+  for (let i = 0; i < 30; i++) px(c, hash(i, 1, 70) % SW, 158 + hash(i, 2, 70) % 30, 6 + hash(i, 3, 70) % 14, 1, "rgba(20,20,30,0.3)");   // cracks
+  for (let x = 8; x < SW; x += 44) px(c, x, 176, 24, 2, "#d8d4c4");
+  ellipse(c, 70, 184, 9, 3, "#3a3d4a"); ellipse(c, 70, 184, 6, 2, "#2a2d38");                                  // a manhole
+  ellipse(c, 250, 168, 12, 3, "rgba(120,170,220,0.55)"); ellipse(c, 248, 168, 6, 1, "rgba(220,240,255,0.7)");  // a puddle
+  [[24, "#3a6fe0"], [284, "#d85a4a"]].forEach(([x, col]) => { px(c, x, 134, 6, 10, col); px(c, x, 134, 6, 2, "#ffffff"); });                   // a mailbox and a bin
+  for (let i = 0; i < 3; i++) { const bx = 120 + i * 9 + Math.round(Math.sin(t * 3 + i) * 1); px(c, bx, 140 + (Math.floor(t * 2 + i) % 2), 3, 3, "#c8c4d0"); px(c, bx + 3, 141, 2, 1, "#f2b25a"); }   // pigeons
+  FX.birds(c, t, 22, 3, 10, 4, "#3a3a4a");
 };
 
-FX.snowland = (c, t, o) => {                     // snowy mountains (Polar Peak)
-  o = o || {};
-  band(c, 0, 124, o.sky || ["#9fb0d4", "#b4c4e2", "#c8d6ee", "#dce6f6", "#eef2fa"]);
-  FX.clouds(c, t, 26, "255,255,255", 3, 3, 3);
+FX.daySnow = (c, t) => {                         // Polar Peak: mountains, pines and drifts
+  band(c, 0, 124, FX.daySky.map((col, i) => ["#8fb0dc", "#a4c0e6", "#bcd2ee", "#d4e2f4", "#eaf2fa"][i]));
+  FX.clouds(c, t, 24, "255,255,255", 3, 3, 3);
   mountain(c, 70, 132, 78, 78, "#8d95b0", "#ffffff"); mountain(c, 220, 134, 96, 96, "#7a86a6", "#ffffff"); mountain(c, 300, 132, 56, 54, "#99a8c4", "#ffffff");
   FX.ridge(c, 132, 5, 2, "#dbe6f4", 0.04);
   for (let k = 0; k < 16; k++) pine(c, 6 + k * 21 + hash(k, 1, 7) % 8, 138 + hash(k, 2, 7) % 6, 10 + hash(k, 3, 7) % 4);
   band(c, 144, SH, ["#f4f9ff", "#e8f2fc", "#dce9f6", "#d0e0f0"]);
   for (let x = 0; x < SW; x += 26) ellipse(c, x + hash(x, 4, 9) % 12, 160 + hash(x, 5, 9) % 26, 16, 3, "#ffffff");
   px(c, 0, 144, SW, 2, "#c4d6ea");
+  for (let k = 0; k < 14; k++) px(c, hash(k, 1, 77) % SW, 150 + hash(k, 2, 77) % 40, 3, 1, "#b4c8e0");              // footprints
+  for (let k = 0; k < 18; k++) if (Math.sin(t * 3 + k) > 0.5) px(c, hash(k, 3, 77) % SW, 148 + hash(k, 4, 77) % 40, 1, 1, "#ffffff");   // sparkles on the snow
+  FX.snow(c, t, 24, 16);
 };
+
+FX.wall = (c, x, y, w, h) => {                   // a wall: stone in the meadow, brick in town, brick with a snow cap in the mountains
+  if (FX.where === "meadow") {
+    px(c, x, y, w, h, "#9aa0ae");
+    for (let row = 0; row * 8 < h; row++) { px(c, x, y + row * 8, w, 1, "#6a6f7d"); for (let bx = (row % 2) * 10; bx < w; bx += 20) px(c, x + bx, y + row * 8, 1, 8, "#6a6f7d"); }
+    for (let k = 0; k < 14; k++) px(c, x + hash(k, 1, 12) % w, y + hash(k, 2, 12) % h, 6, 3, "#5a8a4a");
+    px(c, x - 3, y - 4, w + 6, 5, "#6ac04a");
+  } else {
+    FX.bricks(c, x, y, w, h, "#a8553c", "#7d3c2a");
+    if (FX.where === "snow") { px(c, x - 4, y - 6, w + 8, 7, "#f4f9ff"); px(c, x - 4, y - 6, w + 8, 2, "#ffffff"); for (let i = 0; i < w / 10; i++) px(c, x + i * 10 + 2, y + hash(i, 1, 5) % 8, 8, 3, "#f4f9ff"); }
+    else px(c, x - 3, y - 4, w + 6, 5, "#cfcabd");
+  }
+};
+
+FX.perch = (c, x, y, w, h) => {                  // where the sniper lies: a rooftop in town, a rocky outcrop in the meadow or the mountains
+  if (FX.where === "meadow" || FX.where === "snow") {
+    const snow = FX.where === "snow";
+    ellipse(c, x + w / 2, y + h / 2, w / 2 + 4, h / 2 + 6, snow ? "#7a86a6" : "#8a8f9c");
+    ellipse(c, x + w / 2 - 6, y + h / 2 + 4, w / 3, h / 3, snow ? "#6a7696" : "#6a6f7d");
+    ellipse(c, x + w / 2, y + 3, w / 2, 6, snow ? "#f4f9ff" : "#5aa238"); ellipse(c, x + w / 2 + 6, y + 1, w / 3, 4, snow ? "#ffffff" : "#6ac04a");
+  } else {
+    px(c, x, y, w, 8, "#8a8f9c"); px(c, x, y, w, 2, "#b5b1a5"); px(c, x + 8, y + 8, w - 8, h - 8, FX.where === "retail" ? "#d85a4a" : "#a8553c");
+    for (let wy = y + 16; wy < y + h - 6; wy += 14) for (let wx = x + 16; wx < x + w - 6; wx += 14) px(c, wx, wy, 6, 8, hash(wx + wy, 1, 3) % 4 === 0 ? "#ffe28a" : "#8fd0f0");
+  }
+};
+
+FX.scenery = (c, t) => {                         // whatever setting FX.where says
+  const w = FX.where;
+  if (w === "meadow") FX.dayMeadow(c, t);
+  else if (w === "snow") FX.daySnow(c, t);
+  else FX.dayCity(c, t, w === "retail" ? "retail" : "tilted");
+};
+FX.meadow = FX.city = FX.snowland = (c, t) => FX.scenery(c, t);    // older calls all show the current setting
 
 // ---------- the camera: pushes in or follows, shakes on impacts, bars, vignette, fades ----------
 
@@ -240,7 +304,7 @@ function cinematic(def) {
 const DEATH_FILMS = {
   // Pleasant Park - Tilted Towers: the hidden spike trap
   H1: { dur: 5.2, caption: "Sprint straight through? Bold. Pointy. Wrong.",
-    cam: { from: [1.05, 110, 102], to: [1.55, 206, 124], shake: [[1.9, 6, 0.7]] }, grade: "rgba(255,120,40,0.07)",
+    cam: { from: [1.05, 110, 102], to: [1.55, 206, 124], shake: [[1.9, 6, 0.7]] },
     draw(c, t) {
       FX.meadow(c, t);
       const tx = 214, hit = 1.9;
@@ -270,7 +334,7 @@ const DEATH_FILMS = {
 
   // Pleasant Park - Tilted Towers: the clock tower and its smoke grenades
   H5: { dur: 5.4, caption: "Charging a clock tower alone. The tower won.",
-    cam: { from: [1.0, 150, 108], to: [1.25, 150, 106], shake: [[2.7, 5, 0.6]] }, grade: "rgba(120,40,120,0.1)",
+    cam: { from: [1.0, 150, 108], to: [1.25, 150, 106], shake: [[2.7, 5, 0.6]] },
     draw(c, t) {
       FX.city(c, t);
       clockTower(c, 226, 56);
@@ -313,21 +377,15 @@ const DEATH_FILMS = {
 
   // Pleasant Park - Retail Row: the camping squad
   H2: { dur: 5.2, caption: "Walking past a camping squad in the open: confident, and very, very wrong.",
-    cam: { from: [1.0, 120, 108], to: [1.5, 150, 118], shake: [[2.1, 5, 0.7]] }, grade: "rgba(255,110,40,0.08)",
+    cam: { from: [1.0, 120, 108], to: [1.5, 150, 118], shake: [[2.1, 5, 0.7]] },
     draw(c, t) {
-      band(c, 0, 130, ["#1a1240", "#2c1a5a", "#5a2a72", "#a0386a", "#d8584e", "#f08a50"]);
-      ellipse(c, 60, 52, 14, 14, "#f4f0d0"); ellipse(c, 56, 50, 11, 11, "#fffbe8");
-      FX.ridge(c, 120, 6, 2, "#3a2a58", 0.03);
-      for (let k = 0; k < 18; k++) pine(c, 4 + k * 18 + hash(k, 1, 7) % 8, 146 + hash(k, 2, 7) % 5, 12 + hash(k, 3, 7) % 5);
-      band(c, 148, SH, ["#2f5a34", "#285030", "#22462a", "#1c3c24"]);
-      px(c, 0, 160, SW, 22, "#8a6a3c"); px(c, 0, 160, SW, 2, "#a8864c");
-      for (let x = 0; x < SW; x += 11) px(c, x + hash(x, 1, 5) % 5, 164 + hash(x, 2, 5) % 14, 3, 1, "#a8884e");
+      FX.scenery(c, t);
       // the camp: a tent, a fire and logs
       for (let y = 96; y <= 152; y++) { const half = Math.round((y - 96) * 38 / 56); px(c, 252 - half, y, half, 1, "#3f8a3a"); px(c, 252, y, half + 1, 1, "#2a5e2a"); }
       for (let y = 118; y <= 152; y++) { const half = Math.round((y - 118) * 13 / 34); px(c, 252 - half, y, half * 2 + 1, 1, "#0e0a08"); }
       px(c, 252, 96, 1, 56, "#1a3a1c"); px(c, 252, 88, 2, 10, "#8a5a2c"); px(c, 254, 88, 8 + Math.floor(t * 4) % 2, 5, "#e0463c");
       const fire = 0.35 + 0.1 * Math.sin(t * 9);
-      FX.glow(c, 196, 150, 56, "255,150,40", fire);
+      FX.glow(c, 196, 150, 40, "255,150,40", fire * 0.6);
       px(c, 184, 150, 24, 4, "#4a2f18"); px(c, 188, 147, 16, 3, "#6b4423");
       [[0, 16, 10], [-6, 11, 8], [6, 12, 9]].forEach(([dx, h, w], i) => {
         const fh = h + Math.round(Math.sin(t * 10 + i * 2) * 3);
@@ -361,7 +419,7 @@ const DEATH_FILMS = {
 
   // Pleasant Park - Retail Row: the sniper (first the wide shot, then through the scope)
   H4: { dur: 5.4, caption: "A sniper has a very good view of people checking their maps.",
-    cam: { from: [1.0, 160, 100], to: [1.2, 130, 112], shake: [[3.0, 6, 0.6]] }, grade: "rgba(255,130,50,0.07)",
+    cam: { from: [1.0, 160, 100], to: [1.2, 130, 112], shake: [[3.0, 6, 0.6]] },
     draw(c, t) {
       const plaza = (ox, oy, zoom, withHero) => {                                                                  // the plaza, drawn again inside the scope
         c.save(); c.translate(ox, oy); c.scale(zoom, zoom);
@@ -378,7 +436,7 @@ const DEATH_FILMS = {
       const shot = 3.0;
       if (t < 1.7) {
         plaza(0, 0, 1, true);
-        px(c, 262, 70, 58, 8, "#6a6a7e"); px(c, 262, 70, 58, 2, "#8a8aa0");                                          // the rooftop where the sniper lies
+        FX.perch(c, 262, 70, 58, 62);                                          // the rooftop where the sniper lies
         px(c, 282, 64, 26, 6, "#34502a"); px(c, 296, 64, 14, 2, "#2a2d38");                                           // a ghillie suit and a rifle
         if (Math.floor(t * 3) % 2 === 0) { px(c, 297, 61, 7, 1, "#fff"); px(c, 300, 58, 1, 7, "#fff"); }               // the glint of the scope
         return;
@@ -399,7 +457,7 @@ const DEATH_FILMS = {
       }
       const k = t - shot;
       plaza(0, 0, 1, false);
-      px(c, 262, 70, 58, 8, "#6a6a7e"); px(c, 282, 64, 26, 6, "#34502a"); px(c, 296, 64, 14, 2, "#2a2d38");
+      FX.perch(c, 262, 70, 58, 62); px(c, 282, 64, 26, 6, "#34502a"); px(c, 296, 64, 14, 2, "#2a2d38");
       FX.muzzle(c, 296, 62, -1, clamp01(1 - k * 5));
       flash(c, 0.85 - k * 2.6);
       const f = smooth(clamp01(k / 0.6));
@@ -462,14 +520,12 @@ const DEATH_FILMS = {
 
   // Pleasant Park - Polar Peak: the pump shotgun behind the wall
   H8: { dur: 4.8, caption: "Peeking at a pump shotgun is the express elevator to the elimination screen.",
-    cam: { from: [1.0, 120, 108], to: [1.2, 110, 114], shake: [[2.3, 7, 0.7]] }, grade: "rgba(120,160,230,0.08)",
+    cam: { from: [1.0, 120, 108], to: [1.2, 110, 114], shake: [[2.3, 7, 0.7]] },
     draw(c, t) {
       FX.snowland(c, t, { sky: ["#7a8aae", "#8c9cc0", "#a0aed0", "#b4c0dc", "#cbd4ea"] });
-      FX.bricks(c, 150, 60, 62, 102, "#8a5a4a", "#5e3a2e");                                                           // a wall in the snow
-      px(c, 146, 56, 70, 6, "#e8f2fc"); px(c, 146, 56, 70, 2, "#ffffff");
-      for (let i = 0; i < 6; i++) px(c, 152 + i * 10, 62 + hash(i, 1, 5) % 8, 8, 3, "#f4f9ff");
-      px(c, 200, 60, 10, 102, "#a6705e"); px(c, 208, 60, 2, 102, "#5e3a2e");                                        // the corner
-      px(c, 0, 162, SW, 30, "#e8f2fc"); px(c, 0, 162, SW, 2, "#c4d6ea");
+      FX.wall(c, 150, 60, 62, 102);
+px(c, 200, 60, 10, 102, "#a6705e"); px(c, 208, 60, 2, 102, "#5e3a2e");                                        // the corner
+      if (FX.where === "snow") { px(c, 0, 162, SW, 30, "#e8f2fc"); px(c, 0, 162, SW, 2, "#c4d6ea"); }
       const peekT = smooth(clamp01((t - 0.9) / 0.8)), shotT = 2.3;
       npcBig(c, 242, GROUND, "skull", "idle", t, { scale: 2 });
       px(c, 214, GROUND - 38, 34, 5, "#2a2d38"); px(c, 214, GROUND - 38, 34, 1, "#6a6f7d"); px(c, 226, GROUND - 34, 8, 5, "#7a4a24");      // the shotgun, waiting
@@ -492,10 +548,10 @@ const DEATH_FILMS = {
 
   // Tilted Towers - Retail Row: the rocket while he stares at the shop sign
   H3: { dur: 5.4, caption: "Staring at a shop sign: 10% off, 100% rocket.",
-    cam: { from: [1.0, 120, 108], to: [1.45, 78, 120], shake: [[2.7, 8, 0.8]] }, grade: "rgba(255,110,50,0.08)",
+    cam: { from: [1.0, 120, 108], to: [1.45, 78, 120], shake: [[2.7, 8, 0.8]] },
     draw(c, t) {
       FX.city(c, t);
-      FX.lamp(c, 270, GROUND + 6, true, t);
+      FX.lamp(c, 270, GROUND + 6, false, t);
       px(c, 24, 50, 96, 30, "#14101c"); px(c, 26, 52, 92, 26, "#ffd23f"); px(c, 26, 52, 92, 3, "#fff0a0");           // the big sale sign above the shop
       const neon = Math.floor(t * 9) % 11 !== 0;
       c.font = 'bold 14px "Courier New", Courier, monospace'; c.textAlign = "center"; c.fillStyle = neon ? "#c0392b" : "#7a2a22"; c.fillText("SALE -10%", 72, 72);
@@ -524,39 +580,84 @@ const DEATH_FILMS = {
       FX.embers(c, 84, GROUND - 6, t, 10);
     } },
 
-  // Tilted Towers - Retail Row: the suspiciously clean doorway
-  H6: { dur: 5.2, caption: "A doorway that clean was never an invitation.",
-    cam: { from: [1.05, 130, 112], to: [1.2, 110, 116], shake: [[2.9, 8, 0.8]] }, grade: "rgba(255,120,50,0.07)",
+  // Tilted Towers - Retail Row: the Launch Pad (he flies up, forgets he has no glider, and falls)
+  H6: { dur: 6.0, caption: "He forgot the glider. Gravity did not forget him.",
+    cam: { from: [1.0, 160, 96], to: [1.0, 160, 96], shake: [[1.75, 4, 0.5], [4.9, 10, 0.9]] },
     draw(c, t) {
-      FX.city(c, t);
-      FX.bricks(c, 96, 56, 128, 100, "#a8553c", "#7d3c2a"); px(c, 96, 56, 128, 7, "#cfcabd");
-      px(c, 104, 76, 24, 20, "#26183c"); px(c, 192, 76, 24, 20, "#26183c"); px(c, 106, 78, 20, 16, "#6fb8e8"); px(c, 194, 78, 20, 16, "#6fb8e8");
-      px(c, 116, 78, 1, 16, "#26183c"); px(c, 204, 78, 1, 16, "#26183c");
-      for (let i = 0; i < 6; i++) px(c, 100 + hash(i, 1, 9) % 112, 100 + hash(i, 2, 9) % 50, 6, 4, "rgba(0,0,0,0.18)");        // everything is grubby except the doorway
-      const blow = 2.9;
-      px(c, 144, 92, 32, 64, "#fffdf0"); px(c, 146, 94, 28, 62, "#dff4ff");                                         // the doorway is spotless
-      px(c, 144, 150, 32, 6, "#2f9e4f"); px(c, 148, 152, 24, 2, "#6fd08a");
-      if (t < blow) {
-        if (Math.floor(t * 3) % 2 === 0) { px(c, 150, 102, 1, 5, "#fff"); px(c, 148, 104, 5, 1, "#fff"); }
-        const arm = clamp01((t - 1.7) / 1.0);                                                                       // the tripwire glints and a red light blinks
-        px(c, 144, 126, 32, 1, "rgba(255,255,255," + (0.15 + 0.5 * Math.floor(t * 4) % 2).toFixed(2) + ")");
-        if (t > 1.8 && Math.floor(t * 5) % 2 === 0) { px(c, 138, 98, 3, 3, "#ff2020"); px(c, 179, 98, 3, 3, "#ff2020"); }
-        const x = t < 1.7 ? lerp(-30, 158, smooth(t / 1.7)) : 158 + arm * 2;
-        if (t < 1.7) FX.runDust(c, x, GROUND, t * 0.7);
-        FX.hero(c, x, GROUND, { dir: "right", step: t < 1.7 ? Math.floor(t * 8) % 2 : 0, pose: t > 2.2 ? "scared" : "walk", t });
-        return;
+      const launch = 1.7, apex = 3.5, hover = 4.0, land = 4.9, padX = 184;
+      let h = 0;                                                                                                    // how high he is above the street (in pixels)
+      if (t >= launch && t < apex) { const p = (t - launch) / (apex - launch); h = 420 * (1 - (1 - p) * (1 - p)); }
+      else if (t >= apex && t < hover) h = 420 + Math.sin((t - apex) * 6) * 4;
+      else if (t >= hover && t < land) { const q = (t - hover) / (land - hover); h = 420 * (1 - q * q); }
+      const camAlt = Math.max(0, h - 70), sy = (alt) => GROUND - (alt - camAlt), k = clamp01(camAlt / 340);
+      const mix = (a, b, f) => { const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16); const ch = (sh) => Math.round(lerp((pa >> sh) & 255, (pb >> sh) & 255, f)); return "rgb(" + ch(16) + "," + ch(8) + "," + ch(0) + ")"; };
+      const low = ["#5fb0ee", "#7cc2f4", "#98d2f8", "#b6e2fb", "#d4f0fd", "#e8f6fe"], high = ["#06061e", "#0c0c34", "#141450", "#1e1e78", "#3636a0", "#6a60c8"];
+      band(c, 0, SH, low.map((col, i) => mix(col, high[i], k)));                                                   // the sky gets darker the higher he goes
+      if (k > 0.2) for (let i = 0; i < 40; i++) px(c, hash(i, 1, 51) % SW, hash(i, 2, 51) % 120, 1, 1, "rgba(255,255,255," + ((k - 0.2) * Math.abs(Math.sin(t * 2 + i))).toFixed(2) + ")");
+            [[0, 30, 40], [34, 50, 32], [70, 36, 36], [110, 56, 30], [262, 44, 30], [292, 62, 34]].forEach(([x, hh, w], i) => {   // far buildings (they move slowly)
+        const base = GROUND - (0 - camAlt * 0.6);
+        px(c, x, base - hh, w, hh + 60, "#9aa8c4"); px(c, x, base - hh, w, 2, "#b4c0d8");
+        for (let wy = base - hh + 6; wy < base - 2; wy += 8) for (let wx = x + 4; wx < x + w - 4; wx += 8) px(c, wx, wy, 3, 4, hash(wx + wy, i, 6) % 5 === 0 ? "#ffe28a" : "#8896b4");
+      });
+      clockTower(c, 52, sy(0) - 80);                                                                                // the clock tower he flies past
+      [[96, 70, 44], [150, 54, 40], [232, 76, 46], [284, 60, 36]].forEach(([x, hh, w], i) => {                      // near buildings
+        px(c, x, sy(0) - hh, w, hh + 12, "#a8553c"); px(c, x, sy(0) - hh, w, 3, "#c8785c");
+        for (let wy = sy(0) - hh + 8; wy < sy(0) - 4; wy += 10) for (let wx = x + 5; wx < x + w - 5; wx += 9) px(c, wx, wy, 4, 5, hash(wx + wy, i, 8) % 4 === 0 ? "#ffe28a" : "#8896b4");
+      });
+      const gy = sy(0);
+      if (gy < SH) {                                                                                                // the street
+        px(c, 0, gy, SW, SH - gy + 20, "#5a5f72"); px(c, 0, gy, SW, 3, "#7a7f92"); px(c, 0, gy, SW, 1, "rgba(255,255,255,0.3)");
+        for (let x = 8; x < SW; x += 44) px(c, x, gy + 26, 24, 2, "#d8d4c4");
+        FX.lamp(c, 30, gy + 6, false, t); FX.lamp(c, 296, gy + 6, false, t);
+        drawLaunchPad(c, padX, gy - 20, t, { noBeam: t >= launch });
       }
-      const k = t - blow, f = smooth(clamp01(k / 1.2));
-      px(c, 144, 92, 32, 64, "#1a1410");
-      FX.blast(c, 160, 122, clamp01(k / 2.2), 1.5);
-      flash(c, 0.95 - k * 2.3);
-      FX.chunks(c, 160, 120, clamp01(k / 1.6), 24, ["#a8553c", "#7d3c2a", "#cfcabd", "#fffdf0", "#6b4423"], 2.0, 1.2, 1.8, 4);
-      const door = clamp01(k / 0.7);                                                                                // the door flies out
-      px(c, Math.round(lerp(150, 60, door)), Math.round(lerp(100, 140, door * door)), 12, 40, "#6b4423");
-      px(c, 106, 78, 20, 16, "rgba(255,230,140," + (0.8 - k * 0.5).toFixed(2) + ")");
-      FX.hero(c, lerp(160, 40, f), GROUND + 2 - Math.sin(Math.PI * f) * 62, { pose: "ko", rot: -7 * f, tint: "rgba(20,12,8,0.6)", t, noShadow: true });
-      if (k > 1.5) { FX.plume(c, 40, GROUND - 22, clamp01((k - 1.5) / 1.7), 40, "60,52,52"); dizzy(c, 36, GROUND - 40, t); }
-      FX.embers(c, 160, 150, t, 12);
+      for (let i = 0; i < 9; i++) {                                                                                 // clouds he flies through
+        const cx = ((hash(i, 1, 61) % 380) + t * 6 * (1 + i % 3)) % 380 - 30, cy = sy(250 + (i % 4) * 26);
+        ellipse(c, Math.round(cx), Math.round(cy), 30 + i % 3 * 8, 8 + i % 2 * 3, "rgba(255,200,190," + (0.45 + 0.2 * (1 - k)).toFixed(2) + ")");
+        ellipse(c, Math.round(cx + 14), Math.round(cy + 3), 22, 6, "rgba(255,225,220,0.4)");
+      }
+      if (t >= launch && t < apex) {                                                                                // the pad's beam follows him up
+        const a = 0.25 * (1 - (t - launch) / (apex - launch));
+        c.fillStyle = "rgba(122,240,224," + a.toFixed(2) + ")"; c.fillRect(padX + 9, 0, 14, Math.max(0, sy(0) - 4));
+      }
+      const walk = clamp01(t / 1.4), hopT = clamp01((t - 1.4) / 0.3);
+      const heroX = t < launch ? lerp(-30, padX + 14, smooth(walk)) : lerp(padX + 14, 150, smooth(clamp01((t - launch) / (land - launch))));
+      const heroY = t < launch ? GROUND - 6 * Math.sin(Math.PI * hopT) : GROUND - Math.min(h, 70);
+      if (t < land) {
+        if (t < launch) { FX.runDust(c, heroX, GROUND, t * 0.7); FX.hero(c, heroX, heroY, { dir: "right", step: walk < 1 ? Math.floor(t * 8) % 2 : 0, pose: "walk", t }); }
+        else {
+          const asc = t < apex, hov = t >= apex && t < hover, pan = t >= hover - 0.05 && t < land;
+          const flail = hov ? Math.floor(t * 10) % 2 : 0;
+          FX.hero(c, heroX + (hov ? Math.sin(t * 14) * 2 : 0), heroY, { pose: asc ? "scared" : hov ? (flail ? "fall" : "scared") : "fall", rot: pan ? Math.sin(t * 9) * 0.5 : hov ? Math.sin(t * 8) * 0.25 : 0, t, noShadow: true });
+          if (asc) for (let i = 0; i < 12; i++) px(c, Math.round(heroX - 18 + (i * 7) % 40), Math.round(heroY - 70 + ((t * 300 + i * 41) % 160)), 1, 10, "rgba(255,255,255,0.45)");   // wind streaks
+          if (pan) for (let i = 0; i < 16; i++) px(c, Math.round(heroX - 24 + (i * 9) % 54), Math.round(heroY + 70 - ((t * 360 + i * 37) % 170)), 1, 12, "rgba(255,255,255,0.5)");
+          if (hov) for (let d = 0; d < 4; d++) { const dy = (t * 40 + d * 9) % 24; px(c, Math.round(heroX + 20 + d * 3), Math.round(heroY - 54 + dy), 2, 3, "#7cc4ff"); }   // sweat drops
+        }
+      }
+      if (t >= 3.4 && t < 4.6) {                                                                                    // the "no glider to redeploy" icon
+        const on = Math.floor(t * 8) % 2 === 0 || t > 4.3;
+        px(c, 236, 24, 64, 30, "rgba(10,6,24,0.8)"); px(c, 236, 24, 64, 1, "#fff"); px(c, 236, 53, 64, 1, "#fff"); px(c, 236, 24, 1, 30, "#fff"); px(c, 299, 24, 1, 30, "#fff");
+        for (let q = 0; q < 14; q++) px(c, 250 + q * 2, 32 + Math.round(7 - Math.sqrt(Math.max(0, 49 - (q - 7) * (q - 7)))), 2, 3, q % 3 ? "#ffffff" : "#6fb8ff");      // the glider: a curved wing
+        [[254, 38], [276, 38]].forEach(([lx, ly]) => px(c, lx, ly, 1, 8, "#cfd8ff")); px(c, 262, 46, 8, 4, "#f2692d");
+        if (on) for (let q = 0; q < 24; q++) { px(c, 272 + q, 27 + Math.round(q * 0.9), 3, 3, "#ff2a3a"); px(c, 295 - q, 27 + Math.round(q * 0.9), 3, 3, "#ff2a3a"); }   // a big red cross
+      }
+      if (t >= land) {                                                                                              // he hits the street
+        const k2 = t - land, sx = 150;
+        flash(c, 0.95 - k2 * 2.6);
+        FX.dust(c, sx, GROUND + 8, clamp01(k2 / 1.2), 9, "190,175,160", 60);
+        if (k2 < 0.5) shockRing(c, sx, GROUND + 10, k2 * 2);
+        ellipse(c, sx, GROUND + 8, 36, 8, "#1a1420"); ellipse(c, sx, GROUND + 7, 28, 6, "#0e0a14");
+        for (let r = 0; r < 9; r++) { const ang = r * 0.7, len = 34 + hash(r, 1, 33) % 26; for (let q = 0; q < len; q += 3) px(c, Math.round(sx + Math.cos(ang) * (22 + q) * 1.2), Math.round(GROUND + 9 + Math.sin(ang) * (6 + q * 0.3)), 2, 1, "#14101c"); }   // cracks in the road
+        FX.chunks(c, sx, GROUND + 6, clamp01(k2 / 1.4), 18, ["#5a5f72", "#7a7f92", "#2a2538"], 1.8, 1.4, 1.8, 6);
+        c.save(); c.translate(sx, GROUND + 10); c.scale(1.5, 0.32); c.translate(-sx, -(GROUND + 10));                  // he is flat as a pancake
+        fishAt(c, sx, GROUND + 10, { pose: "ko", rot: 1.5, t });
+        c.restore();
+        const hat = Math.abs(Math.sin(Math.min(k2, 1.2) * 5)) * 30 * (1 - clamp01(k2 / 1.2));                          // his hat bounces away
+        px(c, sx + 16, Math.round(GROUND - 4 - hat), 7, 3, "#a88b5a"); px(c, sx + 18, Math.round(GROUND - 7 - hat), 4, 3, "#a88b5a");
+        if (k2 > 0.6) dizzy(c, sx, GROUND - 6, t);
+        if (k2 > 0.2 && Math.floor(t * 9) % 3 === 0) FX.sparks(c, padX + 16, GROUND - 6, 0.5, 8, 4);                  // the pad flickers out from the shock
+        FX.plume(c, sx + 4, GROUND - 4, clamp01(k2 / 1.8), 30, "170,160,150");
+      }
     } },
 
   // Tilted Towers - Polar Peak: the thin ice (then under the ice)
@@ -565,10 +666,9 @@ const DEATH_FILMS = {
     draw(c, t) {
       const breakT = 2.7;
       if (t < breakT) {
-        band(c, 0, 90, ["#0e1a40", "#16285a", "#1e3a72", "#2a4e88", "#4a78a8"]);
-        for (let k = 0; k < 3; k++) { const y = 22 + k * 12; for (let x = 0; x < SW; x += 2) px(c, x, y + Math.round(Math.sin(x * 0.04 + t * 0.8 + k) * 6), 2, 6, "rgba(" + (k % 2 ? "120,255,180" : "170,140,255") + ",0.2)"); }   // the northern lights
-        for (let i = 0; i < 34; i++) if (Math.sin(t * 2 + i) > -0.3) px(c, hash(i, 1, 50) % SW, hash(i, 2, 50) % 70, 1, 1, "#e8f0ff");
-        mountain(c, 70, 100, 56, 80, "#6a7a9c", "#ffffff"); mountain(c, 250, 102, 64, 90, "#5f6f92", "#ffffff");
+        band(c, 0, 90, ["#8fb0dc", "#a4c0e6", "#bcd2ee", "#d4e2f4", "#eaf2fa"]);
+        FX.clouds(c, t, 20, "255,255,255", 3, 3, 3);
+        mountain(c, 70, 100, 56, 80, "#8d95b0", "#ffffff"); mountain(c, 250, 102, 64, 90, "#7a86a6", "#ffffff");
         for (let k = 0; k < 14; k++) pine(c, 6 + k * 23 + hash(k, 1, 7) % 8, 108 + hash(k, 2, 7) % 5, 9 + hash(k, 3, 7) % 3);
         band(c, 110, SH, ["#bfe0f4", "#aed4ee", "#9ac8e6", "#86bade", "#74acd4"]);                                 // the frozen lake
         for (let x = 0; x < SW; x += 40) px(c, x + hash(x, 1, 5) % 20, 120 + hash(x, 2, 5) % 60, 28, 1, "rgba(255,255,255,0.45)");
@@ -584,7 +684,7 @@ const DEATH_FILMS = {
       }
       const k = t - breakT;
       if (k < 0.8) {                                                                                                // the ice gives way
-        band(c, 0, 110, ["#0e1a40", "#16285a", "#2a4e88", "#4a78a8"]);
+        band(c, 0, 110, ["#8fb0dc", "#a4c0e6", "#bcd2ee", "#d4e2f4"]);
         band(c, 110, SH, ["#bfe0f4", "#aed4ee", "#9ac8e6", "#86bade", "#74acd4"]);
         ellipse(c, 176, 164, 20 + k * 40, 6 + k * 12, "#0a2a5a");
         for (let i = 0; i < 16; i++) { const a = hash(i, 5, 60) % 628 / 100; px(c, Math.round(176 + Math.cos(a) * k * 90), Math.round(160 - Math.abs(Math.sin(a)) * k * 80 + k * k * 40), 4, 3, i % 2 ? "#ffffff" : "#dff4ff"); }
@@ -609,7 +709,7 @@ const DEATH_FILMS = {
 
   // Tilted Towers - Polar Peak: the avalanche (it rolls over him; the quiet snow afterwards)
   H10: { dur: 5.6, caption: "Outrunning an avalanche in a straight line. The snow runs faster.",
-    cam: { from: [1.0, 120, 108], to: [1.3, 180, 116], shake: [[2.4, 6, 1.4]] }, grade: "rgba(150,180,240,0.06)",
+    cam: { from: [1.0, 120, 108], to: [1.3, 180, 116], shake: [[2.4, 6, 1.4]] },
     draw(c, t) {
       FX.snowland(c, t, { sky: ["#8a9cc4", "#a0b0d4", "#b8c6e2", "#d0daee", "#e8eef8"] });
       const whiteout = 2.6;
@@ -651,15 +751,9 @@ const DEATH_FILMS = {
 
   // Retail Row - Polar Peak: the pickaxe duel against the squad
   H11: { dur: 5.2, caption: "A pickaxe duel against a squad. They brought guns. Rude.",
-    cam: { from: [1.1, 130, 112], to: [1.3, 120, 120], shake: [[2.2, 6, 0.9]] }, grade: "rgba(200,120,150,0.08)",
+    cam: { from: [1.1, 130, 112], to: [1.3, 120, 120], shake: [[2.2, 6, 0.9]] },
     draw(c, t) {
-      band(c, 0, 130, ["#5a3a82", "#7a4a8a", "#a8508a", "#d86a7a", "#f08a5a", "#f6b060"]);
-      FX.glow(c, 250, 112, 60, "255,200,140", 0.4); ellipse(c, 250, 112, 14, 14, "#fff0c0");
-      FX.clouds(c, t, 26, "255,180,170", 3, 3, 4);
-      FX.ridge(c, 124, 6, 1, "#5a3a72", 0.03); FX.ridge(c, 134, 4, 3, "#3a5a48", 0.05);
-      band(c, 146, SH, ["#4f8a3a", "#478034", "#3f742e", "#376828"]);
-      px(c, 0, 160, SW, 22, "#8a6a3c"); px(c, 0, 160, SW, 2, "#a8864c");
-      FX.grass(c, t, 182, 192, "#4a8a3a", "#6aaa4a");
+      FX.scenery(c, t);
       [[236, 150], [284, 154]].forEach(([x, y]) => {                                                                // the bushes the squad hides behind
         ellipse(c, x, y, 24, 12, "#1f5a2c"); ellipse(c, x - 7, y - 3, 14, 9, "#2b7a38"); ellipse(c, x + 5, y - 6, 12, 7, "#35893f");
       });
@@ -697,14 +791,13 @@ const DEATH_FILMS = {
 
   // Retail Row - Polar Peak: waving at the rocketeer
   H12: { dur: 5.4, caption: "He waved back. With a rocket.",
-    cam: { from: [1.0, 150, 108], to: [1.3, 110, 118], shake: [[3.5, 8, 0.8]] }, grade: "rgba(255,110,60,0.07)",
+    cam: { from: [1.0, 150, 108], to: [1.3, 110, 118], shake: [[3.5, 8, 0.8]] },
     draw(c, t) {
-      FX.city(c, t, { sky: ["#30185a", "#5a2a78", "#a03a78", "#d85a60", "#f48a4e", "#fbb858"] });
-      FX.glow(c, 80, 130, 50, "255,200,120", 0.4);
-      px(c, 0, 158, SW, SH - 158, "#5a566a"); px(c, 0, 154, SW, 5, "#7a768a"); px(c, 0, 158, SW, 2, "#3a364a");      // our rooftop and its edge
+      FX.scenery(c, t);
+      px(c, 0, 158, SW, SH - 158, "#6f7384"); px(c, 0, 154, SW, 5, "#a0a4b4"); px(c, 0, 158, SW, 2, "#505468");      // our rooftop and its edge
       px(c, 18, 138, 30, 18, "#8a8f9c"); px(c, 18, 138, 30, 3, "#b4b8c4"); px(c, 24, 142, 18, 8, "#4a4f5e");
       for (let i = 0; i < 4; i++) px(c, 26 + i * 4, 140, 1, 10, "#3a3d4a");
-      px(c, 232, 84, 88, 74, "#4a3a62"); px(c, 232, 84, 88, 4, "#6a5a82");                                           // the rooftop across the street with the rocketeer on it
+      px(c, 232, 84, 88, 74, "#8c8f99"); px(c, 232, 84, 88, 4, "#b5b1a5");                                           // the rooftop across the street with the rocketeer on it
       px(c, 232, 84, 88, 1, "rgba(255,200,140,0.4)");
       const aim = smooth(clamp01((t - 1.6) / 0.5)), fireT = 2.3;
       npcBig(c, 276, 84, "renegade", "idle", t, { scale: 1.6, flip: true });
@@ -723,7 +816,7 @@ const DEATH_FILMS = {
       const k = t - 3.5, f = smooth(clamp01(k / 1.4));
       FX.blast(c, x + 4, GROUND - 22, clamp01(k / 2.0), 1.4);
       flash(c, 0.95 - k * 2.4);
-      FX.chunks(c, x + 4, GROUND - 20, clamp01(k / 1.6), 18, ["#7a768a", "#5a566a", "#4a4f5e", "#8a8f9c"], 1.6, 1.2, 1.8, 6);
+      FX.chunks(c, x + 4, GROUND - 20, clamp01(k / 1.6), 18, ["#a0a4b4", "#6f7384", "#4a4f5e", "#8a8f9c"], 1.6, 1.2, 1.8, 6);
       FX.hero(c, x + 20 * f, GROUND - Math.sin(Math.PI * f) * 30, { pose: "ko", rot: 2.4 * f, tint: "rgba(20,12,8,0.6)", t });
       if (k > 1.0) dizzy(c, x + 20, GROUND - 28, t);
     } },

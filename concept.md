@@ -150,7 +150,7 @@ Suggested hazards (texts and options are placeholders the team can change; the d
 | H3 | Retail Row | 1 | A rocket is flying straight at you | Build a wall · Dive behind a car · 💀 Keep looking at the shop sign |
 | H4 | Retail Row | 2 | A sniper glints on a rooftop | Zig-zag to cover · Crouch behind the dumpsters · 💀 Stand still to check your map |
 | H5 | Tilted Towers | 1 | An enemy team smokes you from the clock tower | Retreat behind a building · Build a ramp for cover · 💀 Push them alone |
-| H6 | Tilted Towers | 2 | A doorway looks suspiciously clean | Enter through the window · Shoot the doorway first · 💀 Walk right in |
+| H6 | Tilted Towers | 2 | A glowing Launch Pad sits in the middle of the road | Walk around it · 💀 Hop on it (no glider!) · Shoot the pad |
 | H7 | Polar Peak | 1 | The icy path runs along a cliff edge | Take it slow · Take the longer path inland · 💀 Sprint along the edge |
 | H8 | Polar Peak | 2 | A pump shotgun player waits behind the castle wall | Go around the other side · Throw something to distract them · 💀 Peek around the corner |
 
@@ -396,7 +396,7 @@ These changes replace the older text in sections 3 to 9 where they differ.
 | Pleasant Park - Tilted Towers | H1 spike trap | H5 team smokes you from the clock tower |
 | Pleasant Park - Retail Row | H2 camping squad | H4 sniper |
 | Pleasant Park - Polar Peak | H7 cliff edge | H8 shotgun player |
-| Tilted Towers - Retail Row | H3 rocket | H6 suspicious doorway |
+| Tilted Towers - Retail Row | H3 rocket | H6 Launch Pad |
 | Tilted Towers - Polar Peak | H9 thin ice | H10 avalanche |
 | Retail Row - Polar Peak | H11 another squad | H12 rooftop rocket |
 

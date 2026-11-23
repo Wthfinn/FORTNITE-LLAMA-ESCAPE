@@ -60,11 +60,9 @@ class AnimationAndWorldDataTests(unittest.TestCase):
                 self.assertTrue(3.0 <= float(match.group(1)) <= 6.0, "films are 3-6 seconds long")
                 self.assertGreater(len(match.group(2)), 15)
 
-    def test_every_danger_except_the_doorway_has_its_own_picture(self):
+    def test_every_danger_has_its_own_picture(self):
         pictures = (STATIC / "hazardpics.js").read_text()
         for hazard_id in story.HAZARDS:
-            if hazard_id == "H6":
-                continue                                    # being redesigned, still uses the old picture
             with self.subTest(hazard=hazard_id):
                 self.assertRegex(pictures, r"(?m)^  %s\(c(, sprites)?\) \{" % hazard_id)
 

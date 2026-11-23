@@ -5,7 +5,6 @@
 // built from Fortnite things (pump shotgun, heavy sniper, rocket launcher, spike trap, smoke grenades, skins).
 // They are drawn once in code on the 320 x 192 pixel screen and do not move.
 // Nothing in here decides game rules: it only draws what the page tells it to.
-// (H6, the doorway, has no new picture yet: that danger is being redesigned.)
 
 const HZ = {};
 
@@ -85,7 +84,7 @@ HZ.finish = (c) => {
   c.fillStyle = vg; c.fillRect(0, 0, SW, SH);
 };
 
-// ---------- the 11 scenes ----------
+// ---------- the 12 scenes ----------
 
 const HAZARD_PICS = {
   // Pleasant Park - Tilted Towers: a spike trap hidden in the path
@@ -133,13 +132,7 @@ const HAZARD_PICS = {
 
   // Pleasant Park - Retail Row: a squad camping ahead
   H2(c, sprites) {
-    band(c, 0, 130, ["#1a1240", "#2c1a5a", "#5a2a72", "#a0386a", "#d8584e", "#f08a50"]);
-    ellipse(c, 60, 52, 14, 14, "#f4f0d0"); ellipse(c, 56, 50, 11, 11, "#fffbe8");
-    FX.ridge(c, 120, 6, 2, "#3a2a58", 0.03);
-    for (let k = 0; k < 18; k++) pine(c, 4 + k * 18 + hash(k, 1, 7) % 8, 146 + hash(k, 2, 7) % 5, 12 + hash(k, 3, 7) % 5);
-    band(c, 148, SH, ["#2f5a34", "#285030", "#22462a", "#1c3c24"]);
-    px(c, 0, 160, SW, 22, "#8a6a3c"); px(c, 0, 160, SW, 2, "#a8864c");
-    for (let x = 0; x < SW; x += 11) px(c, x + hash(x, 1, 5) % 5, 164 + hash(x, 2, 5) % 14, 3, 1, "#a8884e");
+    FX.scenery(c, 3);
     for (let y = 92; y <= 152; y++) { const half = Math.round((y - 92) * 40 / 60); px(c, 262 - half, y, half, 1, "#3f8a3a"); px(c, 262, y, half + 1, 1, "#2a5e2a"); }
     for (let y = 116; y <= 152; y++) { const half = Math.round((y - 116) * 14 / 36); px(c, 262 - half, y, half * 2 + 1, 1, "#0e0a08"); }
     px(c, 262, 92, 1, 60, "#1a3a1c"); px(c, 262, 84, 2, 10, "#8a5a2c"); px(c, 264, 84, 9, 5, "#e0463c");
@@ -161,8 +154,7 @@ const HAZARD_PICS = {
   H4(c) {
     FX.city(c, 3);
     clockTower(c, 150, 62);
-    px(c, 228, 90, 92, 8, "#6a6a7e"); px(c, 228, 90, 92, 2, "#8a8aa0"); px(c, 236, 98, 84, 70, "#3a2f48");           // the rooftop and the building under it
-    for (let wy = 106; wy < 160; wy += 14) for (let wx = 244; wx < 316; wx += 14) px(c, wx, wy, 6, 8, hash(wx + wy, 1, 3) % 4 === 0 ? "#ffe28a" : "#201838");
+    FX.perch(c, 228, 90, 92, 78);
     ellipse(c, 276, 86, 22, 6, "#34502a"); ellipse(c, 266, 85, 14, 5, "#3f5a2a");                                   // the sniper in a ghillie suit
     for (let k = 0; k < 24; k++) px(c, 258 + hash(k, 1, 20) % 36, 82 + hash(k, 2, 20) % 7, 2, 1, ["#5a7a35", "#2a3f1e", "#7a6a3a"][k % 3]);
     px(c, 252, 82, 3, 3, "#e8b88a"); px(c, 252, 83, 1, 1, "#14141c");
@@ -202,12 +194,10 @@ const HAZARD_PICS = {
 
   // Pleasant Park - Polar Peak: a pump shotgun waits behind the wall
   H8(c) {
-    FX.snowland(c, 3, { sky: ["#7a8aae", "#8c9cc0", "#a0aed0", "#b4c0dc", "#cbd4ea"] });
-    FX.bricks(c, 0, 52, 152, 112, "#8a5a4a", "#5e3a2e");
-    px(c, 0, 46, 160, 7, "#e8f2fc"); px(c, 0, 46, 160, 2, "#ffffff");
-    for (let i = 0; i < 16; i++) px(c, i * 10 + 2, 52 + hash(i, 1, 5) % 8, 8, 3, "#f4f9ff");
+    FX.scenery(c, 3);
+    FX.wall(c, 0, 52, 152, 112);
     px(c, 140, 52, 12, 112, "#a6705e"); px(c, 150, 52, 2, 112, "#5e3a2e"); px(c, 152, 52, 8, 112, "#5e3a2e");            // the corner
-    px(c, 0, 164, SW, 28, "#e8f2fc"); px(c, 0, 164, SW, 2, "#c4d6ea");
+    if (FX.where === "snow") { px(c, 0, 164, SW, 28, "#e8f2fc"); px(c, 0, 164, SW, 2, "#c4d6ea"); }
     for (let k = 0; k < 9; k++) { px(c, 30 + k * 12, 172 + (k % 2) * 3, 5, 3, "#b4c8e0"); }                          // footprints in the snow leading to the corner
     HZ.gun(c, "pump", 156, 96, 1, 2, "gold");                                                                       // only the barrel shows past the corner
     for (let k = 0; k < 3; k++) ellipse(c, 238 + k * 10, 90 - k * 5, 6 + k * 2, 4 + k, "rgba(255,255,255," + (0.5 - k * 0.12).toFixed(2) + ")");   // breath mist
@@ -226,7 +216,7 @@ const HAZARD_PICS = {
     c.font = 'bold 16px "Courier New", Courier, monospace'; c.textAlign = "center"; c.fillStyle = "#c0392b"; c.fillText("SALE -10%", 82, 71);
     FX.glow(c, 82, 64, 64, "255,210,80", 0.4);
     px(c, 78, 80, 6, 72, "#4a4f5e"); px(c, 26, 80, 112, 3, "#3a3d4a");
-    px(c, 232, 96, 88, 8, "#6a6a7e"); px(c, 244, 104, 76, 60, "#3a2f48"); px(c, 232, 96, 88, 2, "#8a8aa0");           // the rooftop on the right with the rocketeer
+    px(c, 232, 96, 88, 8, "#8c8f99"); px(c, 244, 104, 76, 60, "#a8553c"); px(c, 232, 96, 88, 2, "#b5b1a5");           // the rooftop on the right with the rocketeer
     npcBig(c, 284, 96, "raven", "idle", 3, { scale: 1.6, flip: true });
     HZ.gun(c, "launcher", 262, 74, -1, 1, "purple");
     FX.muzzle(c, 226, 78, -1, 1);
@@ -237,12 +227,27 @@ const HAZARD_PICS = {
     HZ.shadowHero(c, 84, 160, { dir: "up", t: 3, shadowX: 18 });
   },
 
+  // Tilted Towers - Retail Row: a Launch Pad in the middle of the road
+  H6(c) {
+    FX.city(c, 3, { sky: ["#241048", "#2e1a5a", "#5a2a78", "#a03a78", "#e0584e", "#f4864a"] });
+    clockTower(c, 238, 52);
+    FX.glow(c, 150, 130, 80, "56,224,204", 0.25);
+    for (let k = 0; k < 7; k++) { c.fillStyle = "rgba(122,240,224," + (0.1 + 0.02 * k).toFixed(2) + ")"; c.fillRect(124 + k, 0, 54 - k * 2, 124); }       // a tall column of light into the sky
+    for (let k = 0; k < 12; k++) px(c, 128 + hash(k, 1, 40) % 44, 10 + hash(k, 2, 40) % 110, 2, 3, k % 2 ? "#fff" : "#7af0e0");
+    for (let k = 0; k < 6; k++) { const ax = 96 - k * 18, ay = 176 - k * 3; c.globalAlpha = 0.25 + 0.1 * k; for (let q = 0; q < 5; q++) { px(c, ax - q, ay + q, 2, 1, "#7af0e0"); px(c, ax + 1 + q, ay + q, 2, 1, "#7af0e0"); } c.globalAlpha = 1; }   // arrows painted on the road
+    c.save(); c.translate(102, 78); c.scale(3, 3); drawLaunchPad(c, 0, 0, 3, { noBeam: true }); c.restore();                                       // the pad, big
+    [[60, 166], [252, 172]].forEach(([x, y]) => { px(c, x, y - 12, 8, 14, "#f2692d"); px(c, x + 1, y - 8, 6, 2, "#ffffff"); px(c, x - 2, y + 2, 12, 3, "#2a2d38"); px(c, x + 2, y - 15, 4, 3, "#f2692d"); });   // traffic cones
+    px(c, 266, 112, 36, 3, "#8a8f9c"); px(c, 270, 115, 2, 40, "#8a8f9c");                                                                          // a street sign pole
+    px(c, 260, 96, 48, 18, "#2a6ab8"); px(c, 260, 96, 48, 2, "#8fc8ff"); for (let q = 0; q < 5; q++) { px(c, 280 - q, 100 + q * 2, 2, 1, "#fff"); px(c, 283 + q, 100 + q * 2, 2, 1, "#fff"); }   // a blue arrow sign
+    FX.birds(c, 3, 24, 4, 10, 6);
+    HZ.shadowHero(c, 64, 160, { dir: "right", step: 1, t: 3, shadowX: 22 });
+  },
+
   // Tilted Towers - Polar Peak: thin cracking ice
   H9(c) {
-    band(c, 0, 90, ["#0e1a40", "#16285a", "#1e3a72", "#2a4e88", "#4a78a8"]);
-    for (let k = 0; k < 3; k++) { const y = 22 + k * 12; for (let x = 0; x < SW; x += 2) px(c, x, y + Math.round(Math.sin(x * 0.04 + 3 + k) * 6), 2, 6, "rgba(" + (k % 2 ? "120,255,180" : "170,140,255") + ",0.22)"); }
-    for (let i = 0; i < 36; i++) px(c, hash(i, 1, 50) % SW, hash(i, 2, 50) % 70, 1, 1, "#e8f0ff");
-    mountain(c, 70, 100, 56, 80, "#6a7a9c", "#ffffff"); mountain(c, 250, 102, 64, 90, "#5f6f92", "#ffffff");
+    band(c, 0, 90, ["#8fb0dc", "#a4c0e6", "#bcd2ee", "#d4e2f4", "#eaf2fa"]);
+    FX.clouds(c, 3, 20, "255,255,255", 3, 3, 3);
+    mountain(c, 70, 100, 56, 80, "#8d95b0", "#ffffff"); mountain(c, 250, 102, 64, 90, "#7a86a6", "#ffffff");
     for (let k = 0; k < 14; k++) pine(c, 6 + k * 23 + hash(k, 1, 7) % 8, 108 + hash(k, 2, 7) % 5, 9 + hash(k, 3, 7) % 3);
     band(c, 110, SH, ["#bfe0f4", "#aed4ee", "#9ac8e6", "#86bade", "#74acd4"]);
     for (let x = 0; x < SW; x += 40) px(c, x + hash(x, 1, 5) % 20, 120 + hash(x, 2, 5) % 60, 28, 1, "rgba(255,255,255,0.45)");
@@ -281,13 +286,7 @@ const HAZARD_PICS = {
 
   // Retail Row - Polar Peak: another squad bursts out of the bushes
   H11(c) {
-    band(c, 0, 130, ["#5a3a82", "#7a4a8a", "#a8508a", "#d86a7a", "#f08a5a", "#f6b060"]);
-    FX.glow(c, 250, 112, 60, "255,200,140", 0.4); ellipse(c, 250, 112, 14, 14, "#fff0c0");
-    FX.clouds(c, 3, 26, "255,180,170", 3, 3, 4);
-    FX.ridge(c, 124, 6, 1, "#5a3a72", 0.03); FX.ridge(c, 134, 4, 3, "#3a5a48", 0.05);
-    band(c, 146, SH, ["#4f8a3a", "#478034", "#3f742e", "#376828"]);
-    px(c, 0, 160, SW, 22, "#8a6a3c"); px(c, 0, 160, SW, 2, "#a8864c");
-    FX.grass(c, 3, 182, 192, "#4a8a3a", "#6aaa4a");
+    FX.scenery(c, 3);
     const squad = [[200, "skull", "pump", "gold"], [244, "raven", "ar", "purple"], [288, "peely", null, null]];
     squad.forEach(([x, st, gun, rar], i) => {
       ellipse(c, x, 156, 26, 12, "#1f5a2c"); ellipse(c, x - 8, 152, 15, 9, "#2b7a38"); ellipse(c, x + 6, 148, 13, 8, "#35893f");   // the bush they burst out of
@@ -303,12 +302,11 @@ const HAZARD_PICS = {
 
   // Retail Row - Polar Peak: a rocket whistles past from a rooftop
   H12(c) {
-    FX.city(c, 3, { sky: ["#30185a", "#5a2a78", "#a03a78", "#d85a60", "#f48a4e", "#fbb858"] });
-    FX.glow(c, 80, 130, 50, "255,200,120", 0.4);
-    px(c, 0, 158, SW, SH - 158, "#5a566a"); px(c, 0, 154, SW, 5, "#7a768a"); px(c, 0, 158, SW, 2, "#3a364a");        // our rooftop
+    FX.scenery(c, 3);
+    px(c, 0, 158, SW, SH - 158, "#6f7384"); px(c, 0, 154, SW, 5, "#a0a4b4"); px(c, 0, 158, SW, 2, "#505468");        // our rooftop
     px(c, 14, 136, 32, 20, "#8a8f9c"); px(c, 14, 136, 32, 3, "#b4b8c4"); px(c, 20, 140, 20, 9, "#4a4f5e");
-    px(c, 236, 84, 84, 74, "#4a3a62"); px(c, 236, 84, 84, 4, "#6a5a82"); px(c, 236, 84, 84, 1, "rgba(255,200,140,0.4)");  // the rooftop across the street
-    for (let wy = 96; wy < 150; wy += 14) for (let wx = 244; wx < 312; wx += 14) px(c, wx, wy, 6, 8, hash(wx + wy, 2, 3) % 4 === 0 ? "#ffe28a" : "#201838");
+    px(c, 236, 84, 84, 74, "#8c8f99"); px(c, 236, 84, 84, 4, "#b5b1a5"); px(c, 236, 84, 84, 1, "rgba(255,200,140,0.4)");  // the rooftop across the street
+    for (let wy = 96; wy < 150; wy += 14) for (let wx = 244; wx < 312; wx += 14) px(c, wx, wy, 6, 8, hash(wx + wy, 2, 3) % 4 === 0 ? "#ffe28a" : "#6a7a9a");
     npcBig(c, 282, 84, "raven", "idle", 3, { scale: 1.8, flip: true });
     HZ.gun(c, "launcher", 262, 50, -1, 1, "gold");                                                                  // the launcher on the shoulder
     FX.muzzle(c, 226, 54, -1, 1);

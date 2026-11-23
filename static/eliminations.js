@@ -17,7 +17,7 @@ const KILL_FEED = {
   H7: "gravity, with help from the ice",
   H8: "a pump shotgun around the corner",
   H3: "a rocket with 10% off",
-  H6: "a suspiciously clean doorway",
+  H6: "a launch pad and zero gliders",
   H9: "thin ice. Chill.",
   H10: "an angry snowball. The big kind.",
   H11: "a squad with actual guns",
@@ -138,13 +138,7 @@ function skyDusk(c) { band(c, 0, SH, DUSK); }
 const ELIMINATIONS = {
   // Pleasant Park - Tilted Towers: the spike trap
   H1: { draw(c, t) {
-    skyDusk(c);
-    ellipse(c, 250, 112, 30, 30, "#ffe0a0"); ellipse(c, 250, 112, 22, 22, "#fff3c8");
-    hills(c, 120, "#4a2a62", 1, 7); hills(c, 134, "#2d4a45", 3, 5);
-    [[22, 130], [58, 136], [286, 132], [306, 140], [140, 128]].forEach(([x, y]) => { bgTree(c, x, y); px(c, x - 9, y - 12, 18, 22, "rgba(40,10,60,0.35)"); });
-    band(c, 146, SH, ["#3f7a38", "#37702f", "#2f6428", "#285a22"]);
-    px(c, 0, 158, SW, 24, "#8a6a3c"); px(c, 0, 158, SW, 2, "#a8864c"); px(c, 0, 180, SW, 2, "#6a4e2a");
-    for (let x = 0; x < SW; x += 9) px(c, x + rnd(x, 1, 5), 162 + rnd(x, 2, 14), 3, 1, "#a8884e");
+    FX.scenery(c, t);
     spikes(c, 238, 172, 1); px(c, 232, 140, 3, 8, "#c8ccd8"); px(c, 242, 142, 3, 6, "#c8ccd8");
     lootBeam(c, 108, 174, t);
     lootPile(c, 108, 180, t);
@@ -155,13 +149,7 @@ const ELIMINATIONS = {
 
   // Pleasant Park - Tilted Towers: the clock tower and the smoke
   H5: { draw(c, t) {
-    skyDusk(c);
-    [[0, 90, 34, 70], [30, 70, 30, 90], [62, 100, 36, 60], [262, 80, 30, 80], [290, 96, 30, 64]].forEach(([x, y, w, h]) => {
-      px(c, x, y, w, h, "#3a2552"); px(c, x, y, w, 2, "#4f3770");
-      for (let wy = y + 8; wy < y + h - 6; wy += 10) for (let wx = x + 5; wx < x + w - 6; wx += 9) px(c, wx, wy, 4, 5, rnd(wx + wy, 4, 5) === 0 ? "#ffe28a" : "#26183c");
-    });
-    px(c, 0, 150, SW, SH - 150, "#4a4558"); px(c, 0, 150, SW, 3, "#6a6578");
-    for (let x = 6; x < SW; x += 40) px(c, x, 172, 22, 2, "#d8d4c4");
+    FX.scenery(c, t);
     clockTower(c, 196, 64);
     px(c, 224, 100, 4, 6, "#14101c"); px(c, 223, 104, 6, 6, "#14101c");                          // an enemy in the window
     px(c, 225, 102, 1, 1, "#ff4f5e"); px(c, 227, 102, 1, 1, "#ff4f5e");
@@ -177,11 +165,7 @@ const ELIMINATIONS = {
 
   // Pleasant Park - Retail Row: the camper
   H2: { draw(c, t) {
-    band(c, 0, SH, NIGHT); twinkle(c, t, 40, 90);
-    ellipse(c, 70, 40, 14, 14, "#f4f0d0"); ellipse(c, 66, 38, 11, 11, "#fffbe8");
-    hills(c, 112, "#16203a", 2, 6);
-    for (let k = 0; k < 14; k++) pine(c, 8 + k * 24 + rnd(k, 1, 10), 140 + rnd(k, 2, 8), 9 + rnd(k, 3, 4));
-    band(c, 146, SH, ["#1f4430", "#1a3a2a", "#163024", "#122a1e"]);
+    FX.scenery(c, t);
     // the tent
     for (let y = 76; y <= 170; y++) {
       const half = Math.round((y - 76) * 54 / 94);
@@ -211,12 +195,7 @@ const ELIMINATIONS = {
   H4: { draw(c, t) {
     c.fillStyle = "#050508"; c.fillRect(0, 0, SW, SH);
     c.save(); c.beginPath(); c.arc(160, 96, 84, 0, Math.PI * 2); c.clip();
-    band(c, 0, SH, ["#9fc3e6", "#b4d2ee", "#c9ddf2", "#dde9f6", "#efe6e8", "#f6dfd0"]);
-    mountain(c, 60, 124, 54, 66, "#a9b4cc", "#ffffff"); mountain(c, 240, 130, 60, 76, "#8d95b0", "#ffffff");
-    hills(c, 124, "#4f7f55", 1, 5); hills(c, 140, "#456f3f", 4, 4);
-    band(c, 150, SH, ["#5d9248", "#558c43", "#4c7e3b", "#447034"]);
-    px(c, 0, 158, SW, 18, "#8a6a3c");
-    for (let k = 0; k < 8; k++) forestTree(c, 20 + k * 38, 144 + rnd(k, 1, 6), 6 + rnd(k, 2, 4));
+    FX.scenery(c, t);
     px(c, 252, 124, 26, 5, "#34502a"); px(c, 270, 124, 10, 2, "#2a2d38"); px(c, 278, 123, 1, 4, "#8fd4ff");     // a sniper in a ghillie suit, far away
     if (Math.floor(t * 2) % 3 === 0) { px(c, 275, 124, 7, 1, "#fff"); px(c, 278, 121, 1, 7, "#fff"); }
     lootBeam(c, 160, 168, t);
@@ -256,11 +235,8 @@ const ELIMINATIONS = {
 
   // Pleasant Park - Polar Peak: the shotgun (the hero is not in the picture)
   H8: { draw(c, t) {
-    skyDusk(c);
-    hills(c, 120, "#4a2a62", 1, 7);
-    px(c, 0, 160, SW, SH - 160, "#58586a"); px(c, 0, 160, SW, 3, "#7a7a8e");
-    for (let x = 0; x < SW; x += 28) px(c, x + 6, 176, 14, 2, "#8a8a9e");
-    bricks(c, 0, 34, 176, 128, "#8a4a3a", "#5e2e24");                                                       // the wall with the corner
+    FX.scenery(c, t);
+    FX.wall(c, 0, 34, 176, 128);                                                       // the wall with the corner
     px(c, 0, 30, 180, 6, "#a8a8b8"); px(c, 0, 34, 180, 2, "#6a6a7e");
     px(c, 170, 36, 8, 126, "#a86a58"); px(c, 176, 36, 2, 126, "#5e2e24");
     for (let k = 0; k < 10; k++) px(c, 10 + rnd(k, 1, 150), 40 + rnd(k, 2, 110), 8, 2, "rgba(0,0,0,0.18)");
@@ -277,13 +253,7 @@ const ELIMINATIONS = {
 
   // Tilted Towers - Retail Row: the rocket (the hero is not in the picture)
   H3: { draw(c, t) {
-    skyDusk(c);
-    [[0, 70, 60, 90], [250, 60, 70, 100]].forEach(([x, y, w, h]) => {
-      px(c, x, y, w, h, "#4a3a5e"); px(c, x, y, w, 3, "#6a5a82");
-      for (let wy = y + 12; wy < y + h - 10; wy += 14) for (let wx = x + 7; wx < x + w - 8; wx += 12) px(c, wx, wy, 6, 8, rnd(wx + wy, 5, 4) === 0 ? "#ffe28a" : "#2a1f40");
-    });
-    px(c, 0, 148, SW, SH - 148, "#4a4558"); px(c, 0, 148, SW, 3, "#6a6578");
-    for (let x = 4; x < SW; x += 44) px(c, x, 176, 22, 2, "#d8d4c4");
+    FX.scenery(c, t);
     for (let i = 0; i < 16; i++) {                                                                          // the rocket's smoke trail across the sky
       const p = i / 15, sx = 6 + p * 160, sy = 20 + p * 130;
       ellipse(c, Math.round(sx), Math.round(sy + Math.sin(i + t * 2) * 2), 6 + (1 - p) * 5, 4 + (1 - p) * 4, "rgba(230,230,240," + (0.15 + 0.4 * p).toFixed(2) + ")");
@@ -305,43 +275,29 @@ const ELIMINATIONS = {
     smoke(c, 160, 160, (t * 0.3) % 1, 1.5); smoke(c, 234, 160, (t * 0.3 + 0.5) % 1, 1.3);
   } },
 
-  // Tilted Towers - Retail Row: the booby-trapped doorway
+  // Tilted Towers - Retail Row: the Launch Pad (he is flat on the road in a crater)
   H6: { draw(c, t) {
-    skyDusk(c);
-    bricks(c, 0, 24, SW, 146, "#8a4a3a", "#5e2e24");
-    px(c, 0, 20, SW, 6, "#a8a8b8");
-    [[16, 52, 38, 40], [250, 52, 38, 40]].forEach(([x, y, w, h]) => { px(c, x - 2, y - 2, w + 4, h + 4, "#d8d4c4"); px(c, x, y, w, h, "#26183c"); px(c, x + w / 2, y, 1, h, "#d8d4c4"); px(c, x, y + h / 2, w, 1, "#d8d4c4"); });
-    ellipse(c, 160, 100, 78, 62, "rgba(10,6,6,0.42)"); ellipse(c, 160, 110, 52, 44, "rgba(10,6,6,0.4)");     // soot
-    px(c, 122, 54, 76, 116, "#1a1410");                                                                       // the doorway, charred
-    px(c, 128, 60, 64, 110, "#0e0a08");
-    const gl = 0.5 + 0.2 * Math.sin(t * 8);
-    ellipse(c, 160, 150, 26, 16, "rgba(255,120,30," + (gl * 0.5).toFixed(2) + ")");
-    for (let i = 0; i < 5; i++) {                                                                             // small flames in the doorway
-      const fh = 8 + rnd(i, 1, 6) + Math.round(Math.sin(t * 9 + i * 2) * 3);
-      ellipse(c, 134 + i * 13, 168 - fh / 2, 4, fh / 2, "#ff6a2a"); ellipse(c, 134 + i * 13, 169 - fh / 3, 2, fh / 3, "#ffe680");
-    }
-    c.save(); c.translate(116, 56); c.rotate(-0.12);                                                          // the door, hanging from one hinge
-    px(c, 0, 0, 12, 108, "#6b4423"); px(c, 1, 2, 10, 104, "#7a4a24"); px(c, 7, 50, 3, 3, "#e0b43a");
-    for (let k = 0; k < 6; k++) px(c, 0, 8 + k * 18, 12, 2, "rgba(0,0,0,0.5)");
-    c.restore();
-    px(c, 0, 170, SW, SH - 170, "#58586a"); px(c, 0, 170, SW, 2, "#7a7a8e");
-    for (let k = 0; k < 10; k++) px(c, 100 + rnd(k, 3, 120), 168 + rnd(k, 4, 10), 5, 3, k % 2 ? "#5e2e24" : "#3a2f2a");   // rubble
-    lootBeam(c, 160, 172, t);
-    lootPile(c, 160, 180, t);
-    koFish(c, 160, 170, t, { tint: "rgba(24,16,12,0.55)" });
-    smoke(c, 172, 140, (t * 0.35) % 1, 0.9); smoke(c, 148, 140, (t * 0.35 + 0.5) % 1, 0.8);                  // his hair is smoking
-    dizzy(c, 176, 130, t);
+    FX.scenery(c, t);
+    clockTower(c, 112, 50);
+    for (let q = 0; q < 8; q++) px(c, 14 + q * 9, 120 - q * 12, 2, 2, "rgba(255,255,255," + (0.3 + 0.4 * ((t * 1.2 + q * 0.14) % 1)).toFixed(2) + ")");   // a thin line of air where he came down
+    drawLaunchPad(c, 240, 142, t);                                                                                   // the pad that did it
+    ellipse(c, 100, 172, 56, 12, "rgba(14,10,20,0.85)"); ellipse(c, 100, 171, 42, 8, "rgba(6,4,10,0.9)");               // the crater
+    for (let r = 0; r < 9; r++) { const ang = r * 0.7, len = 30 + rnd(r, 1, 26); for (let q = 0; q < len; q += 3) px(c, Math.round(100 + Math.cos(ang) * (34 + q) * 1.3), Math.round(172 + Math.sin(ang) * (8 + q * 0.3)), 2, 1, "#14101c"); }
+    for (let k = 0; k < 10; k++) px(c, 46 + rnd(k, 3, 120), 164 + rnd(k, 4, 22), 4, 3, k % 2 ? "#6a6578" : "#2a2538");   // road chunks
+    lootBeam(c, 100, 174, t);
+    lootPile(c, 100, 182, t);
+    c.save(); c.translate(100, 176); c.scale(1.5, 0.35); c.translate(-100, -176); fishAt(c, 100, 176, { pose: "ko", rot: 1.5, t }); c.restore();   // flat as a pancake
+    const hat = Math.abs(Math.sin((t % 2.2) * 3)) * 6;
+    px(c, 128, Math.round(168 - hat), 7, 3, "#a88b5a"); px(c, 130, Math.round(165 - hat), 4, 3, "#a88b5a");
+    dizzy(c, 100, 156, t);
+    smoke(c, 100, 160, (t * 0.35) % 1, 0.9);
   } },
 
   // Tilted Towers - Polar Peak: the thin ice (the hero is not in the picture)
   H9: { draw(c, t) {
-    band(c, 0, 80, ["#0e1a40", "#16285a", "#1e3a72", "#2a4e88", "#4a78a8"]);
-    for (let k = 0; k < 3; k++) {                                                                             // a little aurora
-      const y = 22 + k * 12;
-      for (let x = 0; x < SW; x += 2) px(c, x, y + Math.round(Math.sin(x * 0.04 + t * 0.8 + k) * 6), 2, 6, "rgba(" + (k % 2 ? "120,255,180" : "170,140,255") + ",0.22)");
-    }
-    twinkle(c, t, 30, 60);
-    mountain(c, 70, 90, 50, 70, "#6a7a9c", "#ffffff"); mountain(c, 250, 92, 58, 80, "#5f6f92", "#ffffff");
+    band(c, 0, 80, ["#8fb0dc", "#a4c0e6", "#bcd2ee", "#d4e2f4", "#eaf2fa"]);
+    FX.clouds(c, t, 20, "255,255,255", 3, 3, 3);
+    mountain(c, 70, 90, 50, 70, "#8d95b0", "#ffffff"); mountain(c, 250, 92, 58, 80, "#7a86a6", "#ffffff");
     for (let k = 0; k < 12; k++) pine(c, 8 + k * 27 + rnd(k, 1, 8), 96 + rnd(k, 2, 5), 8 + rnd(k, 3, 3));
     px(c, 0, 94, SW, 8, "#e8f2ff");
     band(c, 102, SH, ["#bfe0f4", "#aed4ee", "#9ac8e6", "#86bade", "#74acd4"]);                                  // the frozen lake
@@ -384,10 +340,7 @@ const ELIMINATIONS = {
 
   // Retail Row - Polar Peak: the pickaxe duel
   H11: { draw(c, t) {
-    band(c, 0, SH, ["#7a4a8a", "#a8508a", "#d86a7a", "#f08a5a", "#f6b060", "#f9cc80"]);
-    hills(c, 124, "#5a3a72", 1, 6); hills(c, 136, "#3a5a48", 3, 4);
-    band(c, 148, SH, ["#4f8a3a", "#478034", "#3f742e", "#376828"]);
-    px(c, 0, 162, SW, 22, "#8a6a3c"); px(c, 0, 162, SW, 2, "#a8864c"); px(c, 0, 182, SW, 2, "#6a4e2a");
+    FX.scenery(c, t);
     [[24, 150], [50, 156]].forEach(([x, y]) => { ellipse(c, x, y, 20, 10, "#1f5a2c"); ellipse(c, x - 6, y - 2, 12, 8, "#2b7a38"); ellipse(c, x + 4, y - 5, 10, 6, "#35893f"); });
     px(c, 24, 146, 2, 2, "#e0463c"); px(c, 50, 150, 2, 2, "#e0463c");
     const walk = Math.floor(t * 3) % 2;
@@ -407,14 +360,8 @@ const ELIMINATIONS = {
 
   // Retail Row - Polar Peak: wave at the rocketeer
   H12: { draw(c, t) {
-    skyDusk(c);
-    ellipse(c, 70, 124, 34, 34, "#ffe0a0"); ellipse(c, 70, 124, 25, 25, "#fff3c8");
-    for (let k = 0; k < 7; k++) {                                                                               // far skyline
-      const x = k * 48 - 8, h = 40 + rnd(k, 1, 50);
-      px(c, x, 150 - h, 40, h, "#3a2552"); px(c, x, 150 - h, 40, 2, "#4f3770");
-      for (let wy = 150 - h + 8; wy < 142; wy += 10) for (let wx = x + 5; wx < x + 36; wx += 9) if (rnd(wx + wy, 6, 3) === 0) px(c, wx, wy, 4, 5, "#ffe28a");
-    }
-    px(c, 252, 92, 68, 78, "#4a3a62"); px(c, 252, 92, 68, 3, "#6a5a82");                                        // the rooftop with the rocketeer
+    FX.scenery(c, t);
+    px(c, 252, 92, 68, 78, "#8c8f99"); px(c, 252, 92, 68, 3, "#b5b1a5");                                        // the rooftop with the rocketeer
     px(c, 270, 78, 10, 14, "#14101c"); px(c, 272, 74, 6, 6, "#14101c"); px(c, 252 + 10, 82, 20, 4, "#2a2d38");
     px(c, 282, 70 + Math.floor(t * 4) % 2 * 3, 3, 12, "#14101c");                                               // he waves back
     for (let i = 0; i < 14; i++) {                                                                              // the rocket's trail

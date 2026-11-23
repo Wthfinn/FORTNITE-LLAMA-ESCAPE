@@ -187,103 +187,7 @@ function flash(c, a) { if (a > 0) px(c, 0, 0, SW, SH, "rgba(255,255,255," + Math
 
 // ---------- jumping out of the Battle Bus (about 5 seconds) ----------
 
-const BUS_JUMP_SECONDS = 5.4;
-
-function drawBusJump(c, t, busSprite) {
-  band(c, 0, SH, ["#2a6fd8", "#3a80e2", "#4a90ea", "#5ca2f0", "#74b4f4", "#8cc6f8", "#a6d6fb", "#c4e6fd"]);
-  const speed = 60 + Math.min(260, t * 90);                                      // the clouds rush past faster and faster
-  for (let i = 0; i < 9; i++) {
-    const y = SH + 30 - ((i * 47 + t * speed) % (SH + 70));
-    cloud(c, 30 + (i * 83) % 270, y, 1.1 + (i % 3) * 0.3);
-  }
-  // the bus leaves up and to the right, shrinking, and disappears into the clouds
-  const bp = clamp01((t - 0.3) / 2.9);
-  if (busSprite && busSprite.complete && busSprite.naturalWidth && bp < 1) {
-    const sc = lerp(0.8, 0.12, smooth(bp));
-    const bx = lerp(130, 300, smooth(bp)), by = lerp(0, -30, smooth(bp));
-    c.save();
-    c.imageSmoothingEnabled = false;
-    c.drawImage(busSprite, Math.round(bx - busSprite.naturalWidth * sc / 2), Math.round(by), Math.round(busSprite.naturalWidth * sc), Math.round(busSprite.naturalHeight * sc));
-    c.restore();
-    if (t > 0.8 && t < 2.2) bubble(c, "Don't forget to tip!", Math.round(bx + 4), Math.round(by + 54 * sc + 22));
-    if (bp > 0.75) { cloud(c, bx, by + 40 * sc + 4, 2.4 - bp); }
-  }
-  // the fish falls
-  const wob = Math.sin(t * 3.2) * 0.28, sway = Math.sin(t * 2.1) * 16;
-  const chute = t > 4.1;
-  const fy = chute ? lerp(100, 92, smooth(clamp01((t - 4.1) / 0.4))) : 104 + Math.sin(t * 4) * 3;
-  if (chute) {                                                                   // the parachute pops open
-    const open = smooth(clamp01((t - 4.1) / 0.35));
-    ellipse(c, 160, Math.round(fy - 60 - 12 * open), Math.round(8 + 28 * open), Math.round(4 + 14 * open), "#ff5fa8");
-    ellipse(c, 160, Math.round(fy - 62 - 12 * open), Math.round(6 + 20 * open), Math.round(3 + 8 * open), "#ff8fc8");
-    px(c, 160 - Math.round(24 * open), Math.round(fy - 50), 1, Math.round(26 * open), "#f4f4f4"); px(c, 160 + Math.round(24 * open), Math.round(fy - 50), 1, Math.round(26 * open), "#f4f4f4");
-  }
-  if (t > 0.7) {
-    fishAt(c, 160 + (chute ? 0 : sway), fy + 24, { pose: t < 3.7 ? "fall" : "scared", rot: chute ? 0 : wob, scale: 2, t });
-  } else {
-    fishAt(c, lerp(138, 160, t / 0.7), lerp(70, 128, smooth(t / 0.7)) + 24, { pose: "scared", scale: 2, t });
-  }
-  if (t > 0.9 && t < 2.3) outlined(c, "WOOOOHOOO!", 160, 176, "#ffd23f", 16);
-  if (t > 2.5 && t < 3.7) bubble(c, "...did I forget something?", 160 + Math.round(Math.sin(t * 2.1) * 16), 70);
-  if (t > 3.7 && t < 4.4) outlined(c, "PARACHUTE!!", 160, 36, "#ff4f5e", 16);
-  if (t > 1.3 && t < 2.3) {                                                      // a surprised bird
-    const bx = lerp(340, -40, (t - 1.3) / 1.0);
-    px(c, Math.round(bx), 120, 10, 3, "#6a6f7d"); px(c, Math.round(bx) + 2, 117, 3, 3, "#6a6f7d"); px(c, Math.round(bx) - 3, 121, 3, 1, "#f2b43a");
-  }
-  if (t > 4.9) px(c, 0, 0, SW, SH, "rgba(255,255,255," + clamp01((t - 4.9) * 2).toFixed(2) + ")");
-}
-
-// ---------- the title picture ----------
-
-function drawTitleScene(c, t, sprites) {
-  band(c, 0, 118, ["#241a6a", "#3a2a8a", "#5a3aa8", "#8a4ab8", "#c45ab0", "#ef7aa0", "#ffa18a", "#ffcf94"]);
-  for (let i = 0; i < 26; i++) {                                                  // stars in the dark top
-    const tw = Math.sin(t * 2 + i) > 0.3;
-    if (tw) px(c, (i * 97) % SW, 8 + (i * 31) % 40, 1, 1, "#ffffff");
-  }
-  ellipse(c, 232, 104, 30, 30, "rgba(255,240,180,0.35)"); ellipse(c, 232, 104, 22, 22, "#fff2b0"); ellipse(c, 232, 104, 15, 15, "#ffffd0");   // the sun
-  for (let i = 0; i < 6; i++) {
-    const x = ((i * 71 + t * (4 + i)) % (SW + 100)) - 50;
-    ellipse(c, Math.round(x), 30 + i * 11, 26, 5, "rgba(255,190,220,0.85)"); ellipse(c, Math.round(x + 16), 33 + i * 11, 16, 4, "rgba(255,225,240,0.85)");
-  }
-  mountain(c, 60, 130, 62, 62, "#7a6ab0", "#ffffff"); mountain(c, 130, 130, 44, 46, "#8a7ab8", "#f4eaff"); mountain(c, 190, 130, 34, 38, "#9a8ac0", "#f4eaff");   // far peaks
-  // the Storm on the horizon, with lightning
-  ellipse(c, 300, 120, 56, 30, "#6a2fb0"); ellipse(c, 290, 100, 40, 22, "#8a45d8"); ellipse(c, 270, 114, 34, 18, "#b673ff");
-  if (Math.floor(t * 1.4) % 4 === 0 && (t * 10) % 14 < 3) { px(c, 282, 84, 2, 14, "#ffffff"); px(c, 279, 96, 2, 12, "#ffffff"); px(c, 276, 106, 2, 10, "#ffe6ff"); }
-  // Tilted Towers in the distance
-  [[112, 104, 8, 22, "#a8553c"], [122, 96, 8, 30, "#8c8f99"], [132, 106, 10, 20, "#b09a78"], [144, 100, 7, 26, "#a8553c"]].forEach(([x, y, w, h, col]) => { px(c, x, y, w, h, col); px(c, x, y, w, 2, "#cfcabd"); });
-  px(c, 150, 90, 5, 36, "#b7a888"); px(c, 149, 84, 7, 7, "#565a70");
-  // green hills with pines and fruit trees
-  ellipse(c, 80, 156, 130, 34, "#58bd45"); ellipse(c, 260, 162, 120, 32, "#4fae3d");
-  [[20, 138], [44, 142], [96, 140], [210, 144], [250, 140], [296, 146]].forEach(([x, y]) => pine(c, x, y, 9));
-  [[70, 144], [180, 148]].forEach(([x, y]) => { bgTree(c, x, y); px(c, x - 3, y - 4, 2, 2, "#e0243a"); px(c, x + 2, y - 7, 2, 2, "#e0243a"); });
-  px(c, 0, 150, SW, 60, "#62c24d");
-  for (let x = 0; x < SW; x += 7) px(c, x + (x % 3), 152 + (x % 5) * 6, 1, 3, "#7fd866");
-  [[30, 170], [70, 178], [210, 172], [260, 176], [300, 168], [120, 180]].forEach(([x, y], i) => { px(c, x, y, 3, 3, ["#ff5a6e", "#ffd23f", "#ffffff", "#6aa8ff"][i % 4]); px(c, x + 1, y + 3, 1, 3, "#3f9a35"); });
-  // the Battle Bus crosses the sky
-  const bus = sprites && sprites.bus;
-  if (bus && bus.complete && bus.naturalWidth) {
-    const bx = 330 - ((t * 14) % 420);
-    c.imageSmoothingEnabled = false;
-    c.drawImage(bus, Math.round(bx), 14 + Math.round(Math.sin(t) * 3), 50, 75);
-  }
-  // our hero and the runaway llama
-  fishAt(c, 98, 172, { pose: "wave", scale: 3, t });
-  const llama = sprites && sprites.llama;
-  if (llama && llama.complete && llama.naturalWidth) {
-    const bob = Math.round(Math.abs(Math.sin(t * 3)) * 4);
-    c.save();
-    c.imageSmoothingEnabled = false;
-    ellipse(c, 214, 174, 20, 4, "rgba(0,0,0,0.25)");
-    c.drawImage(llama, 214 - 20, 172 - 72 - bob, 40, 72);
-    c.restore();
-  }
-  if (Math.floor(t * 1.5) % 2 === 0) outlined(c, "?", 236, 92, "#ffffff", 16);        // "why did you run off?"
-  // cinema bars
-  px(c, 0, 0, SW, 11, "#000000"); px(c, 0, SH - 11, SW, 11, "#000000");
-  outlined(c, "FORTNITE", 160, 36, "#ffd23f", 24);
-  outlined(c, "LLAMA ESCAPE", 160, 54, "#ffffff", 17);
-}
+const BUS_JUMP_SECONDS = 6.0;     // the jump film (drawBusJump) is in sky.js
 
 // ---------- the Storm: jump over the valley, and the escape ----------
 
@@ -295,38 +199,6 @@ function shockRing(c, x, y, p) {
     if (rr > 0) { ellipse(c, x, y, rr, Math.round(rr * 0.5), "rgba(" + (k % 2 ? "120,220,255" : "190,120,255") + "," + (a * 0.55).toFixed(2) + ")"); }
   }
   ellipse(c, x, y, Math.max(1, Math.round(r * 0.3)), Math.max(1, Math.round(r * 0.15)), "rgba(255,255,255," + a + ")");
-}
-
-// Both jump out of the Storm into a sunny sky. t in seconds.
-function drawStormEscape(c, t, sprites) {
-  const a = clamp01((t - 0.5) / 1.2);
-  band(c, 0, SH, ["#2f7fe0", "#3a8ae6", "#4a96ea", "#5ca4ee", "#74b4f2", "#8cc4f6", "#a6d4fa", "#c4e4fc"]);
-  c.globalAlpha = 1 - a;                                                          // the purple storm fades away
-  band(c, 0, SH, ["#1d0f40", "#2a1458", "#3a1f78", "#5a2fa0", "#7a45c8", "#9a5de0", "#b673ff", "#d29bff"]);
-  c.globalAlpha = 1;
-  for (let i = 0; i < 7; i++) {
-    const y = SH + 20 - ((i * 53 + t * 160) % (SH + 60));
-    c.globalAlpha = a; cloud(c, 40 + (i * 79) % 260, y, 1.2 + (i % 3) * 0.3); c.globalAlpha = 1;
-  }
-  const p = clamp01((t - 0.3) / 2.3);
-  const x = lerp(110, 190, smooth(p)), y = lerp(176, 84, smooth(p));
-  if (t < 0.6) shockRing(c, 110, 176, t / 0.6);
-  const llama = sprites && sprites.llama;
-  if (llama && llama.complete && llama.naturalWidth) {
-    c.save(); c.imageSmoothingEnabled = false;
-    c.translate(Math.round(x + 30), Math.round(y - 20));
-    c.rotate(Math.sin(t * 5) * 0.3);
-    c.drawImage(llama, -17, -30, 34, 60);
-    c.restore();
-  }
-  fishAt(c, x, y + 20, { pose: "fall", rot: Math.sin(t * 4) * 0.25, scale: 2, t });
-  if (t > 2.3) {                                                                  // the parachute
-    const o = smooth(clamp01((t - 2.3) / 0.4));
-    ellipse(c, Math.round(x + 14), Math.round(y - 40 - 10 * o), Math.round(8 + 32 * o), Math.round(4 + 15 * o), "#ff5fa8");
-    ellipse(c, Math.round(x + 14), Math.round(y - 42 - 10 * o), Math.round(6 + 22 * o), Math.round(3 + 8 * o), "#ff8fc8");
-  }
-  if (t > 0.9 && t < 2.8) outlined(c, "WHEEEEEE!", 160, 34, "#ffd23f", 16);
-  if (t > 3.0) px(c, 0, 0, SW, SH, "rgba(255,255,255," + clamp01((t - 3.0) * 1.5).toFixed(2) + ")");
 }
 
 // ---------- an item flies into the backpack ----------

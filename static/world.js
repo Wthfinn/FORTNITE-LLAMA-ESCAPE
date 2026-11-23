@@ -1269,7 +1269,7 @@ const SIDE_STORIES = {
 
 // What lies on the path for each hazard (kept subtle: footprints, shell casings, scorch marks...).
 const HAZARD_DECALS = {
-  H1: "trap", H2: "tent", H3: "launcher", H4: "sniper", H5: "smoke", H6: "wires",
+  H1: "trap", H2: "tent", H3: "launcher", H4: "sniper", H5: "smoke", H6: "launchpad",
   H7: "cracks", H8: "casings", H9: "cracks", H10: "snowpile", H11: "bush", H12: "scorch",
 };
 
@@ -1399,11 +1399,90 @@ function drawHazardLive(c, kind, at, t) {
     ellipse(c, X + 12, Y + 14, 4, 3, "#56b64f"); ellipse(c, X + 21, Y + 17, 3, 2, "#56b64f"); ellipse(c, X + 7, Y + 21, 3, 2, "#56b64f");
     for (let i = 0; i < 26; i++) px(c, X + 4 + hash(i, 3, 5) % 25, Y + 11 + hash(i, 4, 5) % 15, 2, 1, i % 3 ? "#7fd35a" : "#17491f");   // leaves
     px(c, X + 19, Y + 21, 2, 2, "#e0463c"); px(c, X + 8, Y + 24, 2, 2, "#e0463c");                                        // a few berries
+  } else if (kind === "launchpad") {
+    drawLaunchPad(c, X, Y, sec);
   } else if (kind === "sniper") {
     const ph = sec % 2.6;
     if (ph < 0.3) {                                                         // the scope catches the light
       const x = X + 27, y = Y + 17;
       px(c, x - 3, y, 7, 1, "#ffffff"); px(c, x, y - 3, 1, 7, "#ffffff"); px(c, x - 1, y - 1, 3, 3, "#fff7b0");
+    }
+  }
+}
+
+// The Launch Pad (a Fortnite classic): a steel base with hazard stripes, springs at the sides, a glowing teal pad with
+// white arrows rushing upwards and a column of light. (X, Y) = top left of its 32 x 32 tile, sec = time in seconds.
+// The same drawing is used on the path, on the danger card, in the death film and on the elimination card.
+function drawLaunchPad(c, X, Y, sec, o) {
+  o = o || {};
+  const pulse = 0.5 + 0.5 * Math.sin(sec * 5);
+  if (!o.noBeam) {                                                                       // the column of light
+    for (let seg = 0; seg < 9; seg++) {
+      const a = (0.3 * (1 - seg / 9) * (0.7 + 0.3 * pulse)).toFixed(2);
+      c.fillStyle = "rgba(122,240,224," + a + ")"; c.fillRect(X + 9, Y + 15 - (seg + 1) * 5, 14, 6);
+      c.fillStyle = "rgba(210,255,248," + (a * 0.7).toFixed(2) + ")"; c.fillRect(X + 13, Y + 15 - (seg + 1) * 5, 6, 6);
+    }
+    for (let k = 0; k < 6; k++) px(c, X + 10 + (hash(k, 1, 4) % 12), Math.round(Y + 12 - ((sec * 22 + k * 9) % 44)), 1, 2, k % 2 ? "#fff" : "#7af0e0");   // sparks rising
+  }
+  ellipse(c, X + 16, Y + 28, 15, 3, "rgba(0,0,0,0.35)");
+  ellipse(c, X + 16, Y + 20, 19, 8, "rgba(56,224,204," + (0.15 + 0.12 * pulse).toFixed(2) + ")");                       // glow on the ground
+  px(c, X + 1, Y + 18, 30, 9, "#23262f"); px(c, X + 1, Y + 18, 30, 1, "#5a5f6e"); px(c, X + 1, Y + 25, 30, 2, "#14151b");
+  for (let k = 0; k < 7; k++) px(c, X + 2 + k * 4, Y + 25, 2, 2, k % 2 ? "#14151b" : "#f4c542");                         // hazard stripes along the front
+  px(c, X + 2, Y + 14, 3, 8, "#8a8f9c"); px(c, X + 27, Y + 14, 3, 8, "#8a8f9c");                                         // the springs
+  [16, 18, 20].forEach((yy) => { px(c, X + 2, Y + yy, 3, 1, "#4a4f5e"); px(c, X + 27, Y + yy, 3, 1, "#4a4f5e"); });
+  px(c, X + 2, Y + 14, 3, 1, "#d0d4de"); px(c, X + 27, Y + 14, 3, 1, "#d0d4de");
+  ellipse(c, X + 16, Y + 19, 14, 6, "#3a3f4c"); ellipse(c, X + 16, Y + 19, 12, 5, "#171a22");                            // the rim
+  ellipse(c, X + 16, Y + 19, 11, 4, "#18a898"); ellipse(c, X + 16, Y + 19, 8, 3, "#38e0cc"); ellipse(c, X + 16, Y + 18, 5, 2, "#a8fff0");   // the glowing pad
+  [[4, 22], [26, 22]].forEach(([bx, by]) => { px(c, X + bx, Y + by, 2, 2, "#9aa0ae"); px(c, X + bx, Y + by, 1, 1, "#e8ecf4"); });     // bolts
+  for (let i = 0; i < 3; i++) {                                                                                            // white arrows rushing up
+    const ph = (sec * 1.4 + i / 3) % 1, cy = Y + 21 - ph * 15;
+    c.globalAlpha = Math.sin(Math.PI * ph);
+    for (let k = 0; k < 5; k++) { px(c, X + 16 - k - 1, Math.round(cy) + k, 2, 1, "#ffffff"); px(c, X + 15 + k, Math.round(cy) + k, 2, 1, "#ffffff"); }
+    c.globalAlpha = 1;
+  }
+}
+
+// More texture for the paths between the places: flowers and tall grass in the meadow, cracks, puddles, manholes
+// and bullet holes in town, footprints, drifts and icicles in the mountains, plus shadows next to every tree, wall
+// and boulder. Drawn once with the path; what moves (leaves, steam, snow...) is drawn by the page every frame.
+function pathTexture(c, g, isOpen, palOf) {
+  const open = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS && !SOLID_TILES.has(g[y][x]);
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const ch = g[y][x], pal = palOf(x), r = hash(x, y, 51), X = x * T, Y = y * T;
+      if (!SOLID_TILES.has(ch)) {                                                                  // ground you can walk on
+        if (pal === "pleasant") {
+          if (r % 5 === 0) { px(c, X + 4 + r % 9, Y + 7 + (r >>> 3) % 7, 1, 3, "#3f8a30"); px(c, X + 3 + r % 9, Y + 5 + (r >>> 3) % 7, 3, 3, ["#ffe14a", "#ff8fc8", "#ffffff", "#ffb347"][(r >>> 6) % 4]); px(c, X + 4 + r % 9, Y + 6 + (r >>> 3) % 7, 1, 1, "#c0602a"); }
+          if (r % 7 === 1) { px(c, X + 2 + r % 10, Y + 9, 1, 5, "#3f8a30"); px(c, X + 4 + r % 10, Y + 8, 1, 6, "#5aa238"); px(c, X + 6 + r % 10, Y + 10, 1, 4, "#3f8a30"); }
+          if (ch === "p" && r % 6 === 2) { px(c, X + 3, Y + 4, 2, 3, "rgba(70,45,20,0.4)"); px(c, X + 8, Y + 9, 2, 3, "rgba(70,45,20,0.4)"); }       // footprints on the dirt
+          if (ch === "p" && r % 13 === 5) { ellipse(c, X + 8, Y + 9, 5, 2, "rgba(100,150,200,0.45)"); px(c, X + 6, Y + 8, 3, 1, "rgba(230,245,255,0.7)"); }   // a puddle
+        } else if (pal === "polar") {
+          if (r % 6 === 0) { px(c, X + 3, Y + 4, 2, 3, "rgba(120,150,190,0.55)"); px(c, X + 9, Y + 9, 2, 3, "rgba(120,150,190,0.55)"); }               // footprints in the snow
+          if (r % 8 === 3) { px(c, X + 5, Y + 6, 5, 1, "#ffffff"); px(c, X + 7, Y + 4, 1, 5, "#ffffff"); }                                        // a glint on the ice
+          if (r % 9 === 4) { ellipse(c, X + 8, Y + 11, 6, 2, "#ffffff"); ellipse(c, X + 6, Y + 10, 3, 1, "#f4f9ff"); }                              // a little drift
+        } else {                                                                                   // the street
+          if (r % 11 === 0) ellipse(c, X + 8, Y + 9, 5, 3, "rgba(20,20,30,0.2)");                                                                 // an oil stain
+          if (r % 23 === 3) { ellipse(c, X + 8, Y + 8, 6, 4, "#3a3d4a"); ellipse(c, X + 8, Y + 8, 4, 3, "#2a2d38"); px(c, X + 4, Y + 8, 8, 1, "#4a4f5e"); px(c, X + 8, Y + 5, 1, 6, "#4a4f5e"); }   // a manhole
+          if (r % 29 === 5) { ellipse(c, X + 8, Y + 9, 6, 3, "rgba(120,170,220,0.5)"); px(c, X + 5, Y + 8, 4, 1, "rgba(230,245,255,0.75)"); }       // a puddle
+          if (r % 31 === 7) { px(c, X + 6, Y + 7, 2, 2, "#14151b"); px(c, X + 5, Y + 6, 4, 1, "rgba(255,255,255,0.2)"); px(c, X + 10, Y + 10, 2, 2, "#14151b"); }   // bullet holes
+          if (r % 37 === 9) { px(c, X + 2, Y + 3, 12, 1, "rgba(255,255,255,0.25)"); px(c, X + 2, Y + 4, 12, 1, "rgba(0,0,0,0.2)"); }              // a crack
+        }
+      } else {                                                                                     // walls, trees and rocks
+        if (open(x + 1, y)) px(c, X + T - 1, Y + 3, 5, T - 3, "rgba(0,0,0,0.13)");                 // shadows on the open ground next to them
+        if (open(x, y + 1)) { ellipse(c, X + 9, Y + T + 1, 8, 2, "rgba(0,0,0,0.16)"); }
+        if (ch === "b") {
+          if (r % 6 === 0) { px(c, X + 3, Y + 3, 10, 9, "#4a3a2e"); px(c, X + 4, Y + 4, 8, 7, r % 3 ? "#8fd0f0" : "#ffe28a"); px(c, X + 8, Y + 4, 1, 7, "#4a3a2e"); }   // a window
+          else if (r % 17 === 1) { px(c, X + 3, Y + 3, 10, 9, "#f2e8c8"); px(c, X + 5, Y + 5, 6, 2, "#c0392b"); px(c, X + 5, Y + 8, 6, 1, "#3a6fe0"); }            // a poster
+          else if (r % 11 === 2) { px(c, X + 2, Y + 4, 12, 2, "#ff5fa8"); px(c, X + 4, Y + 7, 8, 2, "#3ad6c0"); }                                              // graffiti
+          else if (r % 13 === 3) { px(c, X + 4, Y + 4, 8, 8, "#5a5f6e"); for (let k = 0; k < 4; k++) px(c, X + 5, Y + 5 + k * 2, 6, 1, "#2a2d38"); }       // a vent
+        } else if (ch === "i") {
+          if (open(x, y + 1) || open(x, y - 1)) for (let k = 0; k < 3; k++) { px(c, X + 2 + k * 5, Y + T - 1, 2, 3 + (r + k) % 4, "#e8f6ff"); px(c, X + 2 + k * 5, Y + T - 1, 1, 3 + (r + k) % 4, "#ffffff"); }   // icicles
+        } else if (ch === "O") {
+          px(c, X + 3, Y + 3, 5, 3, "#5aa238"); px(c, X + 9, Y + 5, 3, 2, "#6ac04a");
+        } else if ("toaq".includes(ch) && r % 5 === 0) {
+          px(c, X + 4 + r % 7, Y + 6, 2, 2, "#e0463c");                                           // berries in the trees
+        }
+      }
     }
   }
 }
@@ -1490,7 +1569,9 @@ function pathDefinition(a, b, hazardId) {
     hazardTiles: [[0, 0], [1, 0], [0, 1], [1, 1]].map(([dx, dy]) => [hazardAt[0] + dx, hazardAt[1] + dy]),
     decal: hazardId ? HAZARD_DECALS[hazardId] : null,
     decalAt: hazardAt,
+    hazardTown: hazardAt[0] < 10 ? left : right,                      // the town whose setting surrounds the danger
     decor(c) {
+      pathTexture(c, g, isOpen, (x) => biomeAt(x).pal);
       houses.forEach((h) => abandonedHouse(c, h.x * T, h.y * T, h.w * T, h.h * T, h.snowy));
       fires.forEach(([fx, fy]) => campfire(c, fx * T + 2, fy * T + 4));
       for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {    // a little texture on the path
