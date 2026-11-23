@@ -48,7 +48,7 @@ def add_cache_headers(response):
     Pictures and sounds: kept for an hour. Scripts and style sheet: their address holds a number
     (?v=...) that changes with every edit, so the browser can keep them for as long as it likes.
     """
-    if request.method == "GET" and response.status_code == 200:
+    if request.method in ("GET", "HEAD") and response.status_code == 200:
         if request.path.startswith(("/static/img/", "/static/audio/")):
             response.headers["Cache-Control"] = "public, max-age=3600"
         elif request.path.startswith("/static/") and "v" in request.args:

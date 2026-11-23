@@ -71,7 +71,8 @@ update it when the team changes the design.
 - **Safety:** `validate_state` must never crash on odd values (tests try every field); `requirements.txt` pins every package.
 - **Pause menu (Esc / P):** Resume, New game, Save & exit. Save & exit stores the exact position in a
   second browser key (`SNAPSHOT_KEY` in `static/game.js`) and returns to the title screen. One save slot.
-- Extra features beyond the BRD are not included unless the team project page lists them as required.
+- Extra features beyond the BRD are not included unless the team project page lists them as required
+  (exception decided on 23 Nov night: the Trophies screen, because scope is graded).
 - Team of two (agreed with the professor).
 
 ## Still open
