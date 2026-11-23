@@ -196,8 +196,9 @@ const ELIMINATIONS = {
     c.fillStyle = "#050508"; c.fillRect(0, 0, SW, SH);
     c.save(); c.beginPath(); c.arc(160, 96, 84, 0, Math.PI * 2); c.clip();
     FX.scenery(c, t);
-    px(c, 252, 124, 26, 5, "#34502a"); px(c, 270, 124, 10, 2, "#2a2d38"); px(c, 278, 123, 1, 4, "#8fd4ff");     // a sniper in a ghillie suit, far away
-    if (Math.floor(t * 2) % 3 === 0) { px(c, 275, 124, 7, 1, "#fff"); px(c, 278, 121, 1, 7, "#fff"); }
+    c.save(); c.translate(236, 128); c.scale(0.6, 0.6);                                                        // a sniper in a ghillie suit, lying in the brush far away
+    FX.brushBack(c, 0, 0, 100, t); FX.ghillie(c, 8, -3, t, { glint: Math.floor(t * 2) % 3 === 0 }); FX.brushFront(c, 0, 0, 100, t);
+    c.restore();
     lootBeam(c, 160, 168, t);
     lootPile(c, 160, 170, t);
     c.restore();

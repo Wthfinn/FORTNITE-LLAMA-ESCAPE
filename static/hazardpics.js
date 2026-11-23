@@ -152,19 +152,16 @@ const HAZARD_PICS = {
 
   // Pleasant Park - Retail Row: a sniper glints on a rooftop
   H4(c) {
-    FX.city(c, 3);
-    clockTower(c, 150, 62);
-    FX.perch(c, 228, 90, 92, 78);
-    ellipse(c, 276, 86, 22, 6, "#34502a"); ellipse(c, 266, 85, 14, 5, "#3f5a2a");                                   // the sniper in a ghillie suit
-    for (let k = 0; k < 24; k++) px(c, 258 + hash(k, 1, 20) % 36, 82 + hash(k, 2, 20) % 7, 2, 1, ["#5a7a35", "#2a3f1e", "#7a6a3a"][k % 3]);
-    px(c, 252, 82, 3, 3, "#e8b88a"); px(c, 252, 83, 1, 1, "#14141c");
-    HZ.gun(c, "sniper", 210, 86, -1, 1, "gold");                                                                    // a gold heavy sniper pointing at the fish
-    px(c, 214, 80, 8, 1, "#fff"); px(c, 217, 77, 1, 8, "#fff"); px(c, 215, 79, 4, 4, "rgba(255,255,255,0.5)");        // the scope flashes
-    for (let k = 0; k < 24; k++) px(c, Math.round(lerp(214, 118, k / 24)), Math.round(lerp(81, 140, k / 24)), 2, 1, "rgba(255,40,40," + (0.25 + 0.4 * k / 24).toFixed(2) + ")");   // the red laser
-    px(c, 116, 138, 5, 5, "#ff2020"); FX.glow(c, 118, 140, 10, "255,40,40", 0.5);
-    HZ.shadowHero(c, 112, 160, { t: 3, step: 0, dir: "down", shadowX: 14 });
-    px(c, 98, 128, 28, 22, "#1b1030"); px(c, 99, 129, 26, 20, "#f3e6c8");                                            // he is checking the map
-    px(c, 104, 135, 14, 1, "#7cc4ff"); px(c, 108, 139, 9, 1, "#7cc4ff"); px(c, 114, 140, 4, 1, "#e0463c"); px(c, 115, 139, 1, 3, "#e0463c");
+    FX.scenery(c, 3);
+    SKY.supplyDrop(c, 54, 170, 0.34, 3);                                                                             // a supply drop drifts down in the distance
+    FX.brushBack(c, 252, 164, 128, 3, { hollowAt: 244 });                                                           // the sniper lies in the brush
+    FX.ghillie(c, 272, 160, 3, { glint: true, scale: 1.5 });
+    for (let k = 0; k < 26; k++) px(c, Math.round(lerp(168, 118, k / 26)), Math.round(lerp(146, 140, k / 26)), 2, 1, "rgba(255,40,40," + (0.25 + 0.4 * k / 26).toFixed(2) + ")");   // the red laser to the fish
+    px(c, 116, 138, 5, 5, "#ff2020"); FX.glow(c, 118, 140, 12, "255,40,40", 0.5);
+    HZ.shadowHero(c, 112, 164, { t: 3, step: 0, dir: "down", shadowX: 14 });
+    px(c, 98, 134, 28, 22, "#1b1030"); px(c, 99, 135, 26, 20, "#f3e6c8");                                            // he is checking the map
+    px(c, 104, 141, 14, 1, "#7cc4ff"); px(c, 108, 145, 9, 1, "#7cc4ff"); px(c, 114, 146, 4, 1, "#e0463c"); px(c, 115, 145, 1, 3, "#e0463c");
+    FX.brushFront(c, 252, 164, 128, 3, { sparse: true });
   },
 
   // Pleasant Park - Polar Peak: the icy path along a cliff edge

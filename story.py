@@ -185,10 +185,10 @@ HAZARDS = {
     },
     "H4": {
         "path": ("pleasant_park", "retail_row"), "order": 2,
-        "situation": "Something glints on a rooftop. A sniper!",
+        "situation": "Something glints in the brush ahead. A sniper!",
         "options": [
             {"text": "Zig-zag to cover", "deadly": False, "survive": "You zig-zag like a drunk crab. The sniper misses three times and starts a very sad rant on voice chat."},
-            {"text": "Crouch behind the dumpsters", "deadly": False, "survive": "You crouch behind the dumpsters. A rat gives you a look. You give the rat a look. Respect is exchanged and the sniper misses."},
+            {"text": "Duck behind a crate", "deadly": False, "survive": "You duck behind a crate. A rat gives you a look. You give the rat a look. Respect is exchanged and the sniper misses."},
             {"text": "Stand still to check your map", "deadly": True},
         ],
     },

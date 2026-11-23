@@ -255,6 +255,88 @@ FX.perch = (c, x, y, w, h) => {                  // where the sniper lies: a roo
   }
 };
 
+// ---------- the sniper in the brush: a patch of undergrowth and a sniper in a ghillie suit lying in it ----------
+// (x, y) = middle of the patch at ground level, w = its width. The brush is drawn in two parts so the sniper can lie between them:
+// FX.brushBack first, then FX.ghillie, then FX.brushFront over the rifle. In town the patch is a weedy, overgrown strip by the kerb.
+
+FX.brushBack = (c, x, y, w, t, o) => {
+  o = o || {};
+  const town = FX.where === "retail" || FX.where === "tilted";
+  const dark = town ? ["#2a4a2a", "#34562e", "#2a4224"] : ["#1f4a28", "#2a5e32", "#245028"];
+  const mid = town ? ["#4a7a3a", "#58883f", "#628f44"] : ["#2f7a3c", "#3a8a44", "#46a04e"];
+  const sway = (i) => Math.round(Math.sin(t * 1.5 + i * 0.9) * 1);
+  ellipse(c, x, y + 4, Math.round(w / 2 + 8), 5, "rgba(0,0,0,0.3)");
+  if (town) {                                                                              // an overgrown strip along the kerb
+    px(c, x - w / 2 - 4, y - 1, w + 8, 9, "#8a867a"); px(c, x - w / 2 - 4, y - 1, w + 8, 2, "#b8b4a8"); px(c, x - w / 2 - 4, y + 6, w + 8, 2, "#5a574e");
+    for (let i = 0; i < 8; i++) px(c, x - w / 2 + hash(i, 1, 210) % w, y + 1 + hash(i, 2, 210) % 5, 5, 1, "rgba(0,0,0,0.25)");
+  }
+  for (let i = 0; i < 16; i++) {                                                           // the dark back of the bush
+    const bx = x - w / 2 + 6 + i * (w - 12) / 15, by = y - 8 - hash(i, 3, 210) % 12;
+    ellipse(c, Math.round(bx) + sway(i), by, 13 + hash(i, 4, 210) % 8, 10 + hash(i, 5, 210) % 7, dark[i % 3]);
+  }
+  for (let i = 0; i < 12; i++) {                                                           // lighter leaves higher up
+    const bx = x - w / 2 + 10 + i * (w - 20) / 11, by = y - 20 - hash(i, 6, 210) % 12;
+    ellipse(c, Math.round(bx) + sway(i + 3), by, 11 + hash(i, 7, 210) % 6, 8 + hash(i, 8, 210) % 5, mid[i % 3]);
+    ellipse(c, Math.round(bx) - 3 + sway(i + 3), by - 3, 6, 3, o.light || "#7ac860");
+  }
+  if (o.hollowAt !== undefined) { ellipse(c, o.hollowAt, y - 7, 40, 14, "#10281a"); ellipse(c, o.hollowAt - 4, y - 5, 32, 9, "#0b1d0f"); }     // a hollow in the bush where the sniper lies
+  for (let i = 0; i < 9; i++) {                                                            // twigs and branches poking out
+    const bx = x - w / 2 + 8 + hash(i, 9, 210) % (w - 16), len = 8 + hash(i, 10, 210) % 10, dir = hash(i, 11, 210) % 2 ? 1 : -1;
+    for (let q = 0; q < len; q++) px(c, bx + dir * q, y - 30 - q + hash(i, 12, 210) % 8, 1, 1, "#5a4020");
+  }
+};
+
+FX.brushFront = (c, x, y, w, t, o) => {
+  o = o || {};
+  const town = FX.where === "retail" || FX.where === "tilted";
+  const sway = (i) => Math.round(Math.sin(t * 1.8 + i * 1.1) * 1);
+  const dark = town ? "#34562e" : "#245028", mid = town ? "#628f44" : "#46a04e", light = "#86d460";
+  for (let i = 0; i < 26; i++) {                                                           // tall grass and ferns in front
+    if (o.sparse && i % 2) continue;                                                       // fewer blades, so the sniper can be seen between them
+    const bx = x - w / 2 + 2 + i * (w - 4) / 25, h = (o.sparse ? 5 : 8) + hash(i, 13, 210) % (o.sparse ? 7 : 12), s = sway(i);
+    px(c, bx + s, y + 2 - h, 1, h, i % 3 ? mid : dark); px(c, bx + 2 + s, y + 3 - h + 2, 1, h - 2, i % 2 ? light : mid); px(c, bx - 1 + s * 2, y + 2 - h - 1, 1, 2, light);
+  }
+  for (let i = 0; i < 7; i++) {                                                            // fern fronds fanning out
+    const fx = x - w / 2 + 10 + i * (w - 20) / 6, fy = y + 1;
+    for (let q = 1; q < 9; q++) { px(c, fx - q, fy - q * 0.8 - (i % 2) * 2, 2, 1, q % 2 ? mid : light); px(c, fx + q, fy - q * 0.8 - (i % 2) * 2, 2, 1, q % 2 ? light : mid); }
+  }
+  for (let i = 0; i < 10; i++) {                                                           // flowers in the meadow, dandelions in town
+    const fx = x - w / 2 + hash(i, 14, 210) % w, fy = y - hash(i, 15, 210) % 8;
+    px(c, fx, fy, 2, 2, town ? "#ffe14a" : ["#ff8fc8", "#ffffff", "#ffe14a"][i % 3]); px(c, fx, fy + 2, 1, 3, dark);
+  }
+  for (let i = 0; i < 6; i++) px(c, x - w / 2 + hash(i, 16, 210) % w, y - 10 - hash(i, 17, 210) % 14 + Math.round(Math.sin(t * 2 + i) * 2), 2, 1, light);     // a few loose leaves
+};
+
+// The sniper lies on the ground facing left (towards the player). o: glint (scope flash), rise (head lifts 0..1), flash (muzzle flash 0..1).
+FX.ghillie = (c, x, y, t, o) => {                         // o.scale draws him bigger so he can be seen
+  o = o || {};
+  if (o.scale && o.scale !== 1) {
+    c.save(); c.translate(x, y); c.scale(o.scale, o.scale);
+    FX.ghillie(c, 0, 0, t, Object.assign({}, o, { scale: 1 }));
+    c.restore();
+    return;
+  }
+  const rise = o.rise || 0, strands = ["#5a6a2a", "#7a6a3a", "#4a5a22", "#8a7a45", "#3a4a22"];
+  ellipse(c, x + 12, y + 2, 30, 4, "rgba(0,0,0,0.3)");
+  ellipse(c, x + 14, y - 6, 26, 8, "#34502a"); ellipse(c, x + 6, y - 9, 16, 6, "#3f5a2a");                                  // the long body
+  ellipse(c, x - 12, y - 8 - rise * 3, 10, 8 + rise, "#34502a"); ellipse(c, x - 14, y - 10 - rise * 3, 7, 5, "#4a6a30");     // the hood
+  for (let k = 0; k < 54; k++) {                                                                                          // strands of burlap and grass hanging all over the suit
+    const sx = x - 22 + (k * 71) % 62, sy = y - 12 + (k * 13) % 10 - (sx < x - 6 ? rise * 3 : 0), len = 3 + (k * 7) % 5, sw = Math.round(Math.sin(t * 1.4 + k) * 1);
+    px(c, sx + sw, sy, 1, len, strands[k % 5]); px(c, sx + 1 + sw, sy + 1, 1, Math.max(1, len - 2), strands[(k + 2) % 5]);
+  }
+  [[x + 6, y - 11, 8, 3, "#7a6a3a"], [x + 22, y - 9, 7, 3, "#5a6a2a"], [x - 4, y - 13 - rise * 3, 6, 2, "#8a7a45"]].forEach(([bx, by, bw, bh, col]) => px(c, bx, by, bw, bh, col));   // patches of cloth
+  px(c, x - 19, y - 10 - rise * 3, 5, 3, "#14110a");                                                                       // the face in shadow
+  const blink = Math.floor(t * 0.8) % 5 === 0 && (t * 0.8) % 1 < 0.2;
+  if (!blink) { px(c, x - 18, y - 9 - rise * 3, 2, 1, "#fff6c0"); px(c, x - 16, y - 9 - rise * 3, 1, 1, "#fff6c0"); }       // one watchful eye
+  px(c, x - 62, y - 6, 46, 2, "#2a2d38"); px(c, x - 62, y - 6, 46, 1, "#6a7288"); px(c, x - 64, y - 7, 3, 4, "#14141c");       // the long barrel of the heavy sniper
+  px(c, x - 28, y - 7, 12, 3, "#8a6a1a"); px(c, x - 52, y - 6, 14, 1, "#f4c542");                                           // gold parts
+  px(c, x - 38, y - 12, 16, 5, "#1a1c26"); px(c, x - 38, y - 12, 16, 1, "#4a5060"); px(c, x - 39, y - 11, 2, 3, "#8fd4ff");  // the scope
+  px(c, x - 52, y - 4, 1, 7, "#2a2d38"); px(c, x - 46, y - 4, 1, 7, "#2a2d38");                                             // the little legs of the rifle
+  for (let k = 0; k < 5; k++) px(c, x - 56 + k * 9, y - 8 - (k % 2) * 1, 1, 3 + k % 3, strands[(k + 1) % 5]);                  // strands draped over the barrel
+  if (o.glint) { px(c, x - 46, y - 11, 9, 1, "#fff"); px(c, x - 42, y - 15, 1, 9, "#fff"); px(c, x - 44, y - 13, 5, 5, "rgba(255,255,255,0.45)"); }
+  if (o.flash) FX.muzzle(c, x - 66, y - 5, -1, o.flash);
+};
+
 FX.scenery = (c, t) => {                         // whatever setting FX.where says
   const w = FX.where;
   if (w === "meadow") FX.dayMeadow(c, t);
@@ -417,54 +499,61 @@ const DEATH_FILMS = {
       }
     } },
 
-  // Pleasant Park - Retail Row: the sniper (first the wide shot, then through the scope)
-  H4: { dur: 5.4, caption: "A sniper has a very good view of people checking their maps.",
-    cam: { from: [1.0, 160, 100], to: [1.2, 130, 112], shake: [[3.0, 6, 0.6]] },
+  // Pleasant Park - Retail Row: the sniper lying in the brush (first the wide shot, then through the scope)
+  H4: { dur: 5.6, caption: "A sniper has a very good view of people checking their maps.",
+    cam: { from: [1.0, 170, 104], to: [1.18, 140, 112], shake: [[3.1, 7, 0.7]] },
     draw(c, t) {
-      const plaza = (ox, oy, zoom, withHero) => {                                                                  // the plaza, drawn again inside the scope
-        c.save(); c.translate(ox, oy); c.scale(zoom, zoom);
-        FX.city(c, t);
-        clockTower(c, 160, 62);
-        if (withHero) {
-          FX.hero(c, 110, GROUND, { t, step: 0 });
-          const sway = Math.sin(t * 4) * 1;
-          px(c, 96, GROUND - 28 + sway, 28, 20, "#1b1030"); px(c, 97, GROUND - 27 + sway, 26, 18, "#f3e6c8");     // the unfolded map, held in front of his chest
-          px(c, 102, GROUND - 22 + sway, 14, 1, "#7cc4ff"); px(c, 106, GROUND - 18 + sway, 9, 1, "#7cc4ff"); px(c, 112, GROUND - 17 + sway, 4, 1, "#e0463c"); px(c, 113, GROUND - 18 + sway, 1, 3, "#e0463c");
-        }
-        c.restore();
+      const shot = 3.1, hx = 96, bx = 250, sx = 262;
+      const map = (m) => {                                                                                         // the unfolded map in front of his chest
+        const sway = Math.round(Math.sin(t * 4)), my = GROUND - 28 + sway;
+        px(c, hx - 14, my, 28, 20, "#1b1030"); px(c, hx - 13, my + 1, 26, 18, "#f3e6c8");
+        px(c, hx - 8, my + 6, 14, 1, "#7cc4ff"); px(c, hx - 4, my + 10, 9, 1, "#7cc4ff"); px(c, hx + 2, my + 11, 4, 1, "#e0463c"); px(c, hx + 3, my + 10, 1, 3, "#e0463c");
       };
-      const shot = 3.0;
-      if (t < 1.7) {
-        plaza(0, 0, 1, true);
-        FX.perch(c, 262, 70, 58, 62);                                          // the rooftop where the sniper lies
-        px(c, 282, 64, 26, 6, "#34502a"); px(c, 296, 64, 14, 2, "#2a2d38");                                           // a ghillie suit and a rifle
-        if (Math.floor(t * 3) % 2 === 0) { px(c, 297, 61, 7, 1, "#fff"); px(c, 300, 58, 1, 7, "#fff"); }               // the glint of the scope
+      const place = (o) => {                                                                                       // the brush with the sniper in it
+        FX.brushBack(c, bx, GROUND + 2, 124, t, { hollowAt: sx - 6 });
+        FX.ghillie(c, sx + 6, GROUND - 2, t, Object.assign({ scale: 1.5 }, o));
+        FX.brushFront(c, bx, GROUND + 2, 124, t, { sparse: true });
+      };
+      if (t < 1.7) {                                                                                               // wide: he stops and opens his map; the scope glints in the leaves
+        FX.scenery(c, t);
+        const x = lerp(-30, hx, smooth(clamp01(t / 1.0)));
+        if (t < 1.0) FX.runDust(c, x, GROUND, t * 0.6);
+        FX.hero(c, x, GROUND, { dir: t < 1.0 ? "right" : "down", step: t < 1.0 ? Math.floor(t * 8) % 2 : 0, t });
+        if (t > 1.0) map();
+        place({ glint: t > 1.15 && Math.floor(t * 6) % 3 === 0 });
         return;
       }
-      if (t < shot) {                                                                                              // through the scope
+      if (t < shot) {                                                                                              // through the scope, between the leaves
         const k = t - 1.7;
         c.fillStyle = "#050508"; c.fillRect(0, 0, SW, SH);
         c.save(); c.beginPath(); c.arc(160, 96, 86, 0, Math.PI * 2); c.clip();
-        const zoom = 2.4 + k * 0.1, sw = Math.sin(t * 2.4) * 5 * (1 - clamp01(k / 1.2)), sh = Math.cos(t * 1.9) * 4 * (1 - clamp01(k / 1.2));
-        plaza(160 - 110 * zoom + sw, 96 - (GROUND - 32) * zoom + sh, zoom, true);
+        const zoom = 2.4 + k * 0.08, sw = Math.sin(t * 2.4) * 5 * (1 - clamp01(k / 1.2)), sh = Math.cos(t * 1.9) * 4 * (1 - clamp01(k / 1.2));
+        c.save(); c.translate(160 - hx * zoom + sw, 96 - (GROUND - 32) * zoom + sh); c.scale(zoom, zoom);
+        FX.scenery(c, t); FX.hero(c, hx, GROUND, { t, step: 0 }); map();
+        c.restore();
+        for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283 + 0.2; ellipse(c, Math.round(160 + Math.cos(a) * 92), Math.round(96 + Math.sin(a) * 92), 16 + i % 3 * 4, 9 + i % 2 * 3, i % 3 ? "#1f4a28" : "#2a5e32"); }   // leaves at the edge of the view
         c.restore();
         const mark = (x, y, w, h) => { px(c, x + 1, y + 1, w, h, "rgba(0,0,0,0.6)"); px(c, x, y, w, h, "#f4f4d8"); };
         mark(76, 96, 76, 1); mark(168, 96, 76, 1); mark(160, 12, 1, 76); mark(160, 104, 1, 76);
-        for (let q = 1; q < 8; q++) { mark(160 + q * 10, 93, 1, 7); mark(160 - q * 10, 93, 1, 7); mark(157, 96 + q * 10, 7, 1); mark(157, 96 - q * 10, 7, 1); }
-        if (k > 0.7) { px(c, 155, 91, 11, 11, "rgba(255,40,40," + (0.3 + 0.35 * Math.sin(t * 14)).toFixed(2) + ")"); }  // the red dot settles
+        for (let q = 1; q < 8; q++) { mark(160 + q * 10 - 1, 93, 1, 7); mark(160 - q * 10, 93, 1, 7); mark(157, 96 + q * 10, 7, 1); mark(157, 96 - q * 10, 7, 1); }
+        if (k > 0.7) px(c, 155, 91, 11, 11, "rgba(255,40,40," + (0.3 + 0.35 * Math.sin(t * 14)).toFixed(2) + ")");
         FX.ring(c, 160, 96, 86, 86, "#0e0e14");
         return;
       }
-      const k = t - shot;
-      plaza(0, 0, 1, false);
-      FX.perch(c, 262, 70, 58, 62); px(c, 282, 64, 26, 6, "#34502a"); px(c, 296, 64, 14, 2, "#2a2d38");
-      FX.muzzle(c, 296, 62, -1, clamp01(1 - k * 5));
+      const k = t - shot;                                                                                          // the shot from the brush
+      FX.scenery(c, t);
+      place({ flash: clamp01(1 - k * 5), rise: clamp01(k * 3) * (1 - clamp01((k - 0.8) / 0.6)) });
+      FX.chunks(c, 166, GROUND - 6, clamp01(k / 1.2), 18, ["#3f9a35", "#2c7a2c", "#6ac04a", "#5a4020"], 1.6, 1.0, 1.6, 8);       // the muzzle blast throws leaves
+      FX.dust(c, 190, GROUND + 4, clamp01(k / 1.2), 6, "170,150,110", 34);
+      FX.plume(c, 166, GROUND - 8, clamp01(k / 2.0), 26, "200,200,210");
+      px(c, 214 + Math.round(k * 40), GROUND - 18 + Math.round(k * k * 40), 2, 1, "#d9a63a");                          // a shell casing flies out
       flash(c, 0.85 - k * 2.6);
+      for (let i = 0; i < 5; i++) { const bxp = 230 + i * 18 + k * (30 + i * 10), byp = GROUND - 60 - k * (40 + i * 8); if (byp > 14) { px(c, Math.round(bxp), Math.round(byp), 3, 1, "#2a1a3a"); px(c, Math.round(bxp) + 3, Math.round(byp) + (Math.floor(k * 14 + i) % 2), 3, 1, "#2a1a3a"); } }   // birds burst out of the trees
       const f = smooth(clamp01(k / 0.6));
-      FX.dust(c, 110, GROUND + 4, clamp01((k - 0.2) / 1.2), 6, "190,180,170", 30);
-      px(c, Math.round(96 + f * 130), Math.round(GROUND - 40 - f * 60 + (1 - f) * 0), 22, 14, "#f3e6c8");           // the map flutters away
-      FX.hero(c, 110 - 14 * f, GROUND + 6, { pose: "ko", rot: -1.55 * f, t });
-      if (k > 0.9) dizzy(c, 98, GROUND - 24, t);
+      px(c, Math.round(hx - 14 + f * 130), Math.round(GROUND - 28 - f * 60), 22, 14, "#f3e6c8");                          // the map flutters away
+      FX.dust(c, hx, GROUND + 4, clamp01((k - 0.2) / 1.2), 6, "190,180,170", 30);
+      FX.hero(c, hx - 14 * f, GROUND + 6, { pose: "ko", rot: -1.55 * f, t });
+      if (k > 0.9) dizzy(c, hx - 2, GROUND - 24, t);
     } },
 
   // Pleasant Park - Polar Peak: the icy cliff

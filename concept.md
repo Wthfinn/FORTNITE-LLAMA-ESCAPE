@@ -148,7 +148,7 @@ Suggested hazards (texts and options are placeholders the team can change; the d
 | H1 | Pleasant Park | 1 | A spike trap on the garden path | Jump over it · Go around through the hedge · 💀 Sprint straight through |
 | H2 | Pleasant Park | 2 | A squad is camping right ahead | Sneak along the fence · Wait until they leave · 💀 Walk past them in the open |
 | H3 | Retail Row | 1 | A rocket is flying straight at you | Build a wall · Dive behind a car · 💀 Keep looking at the shop sign |
-| H4 | Retail Row | 2 | A sniper glints on a rooftop | Zig-zag to cover · Crouch behind the dumpsters · 💀 Stand still to check your map |
+| H4 | Retail Row | 2 | A sniper glints in the brush ahead (ghillie suit) | Zig-zag to cover · Duck behind a crate · 💀 Stand still to check your map |
 | H5 | Tilted Towers | 1 | An enemy team smokes you from the clock tower | Retreat behind a building · Build a ramp for cover · 💀 Push them alone |
 | H6 | Tilted Towers | 2 | A glowing Launch Pad sits in the middle of the road | Walk around it · 💀 Hop on it (no glider!) · Shoot the pad |
 | H7 | Polar Peak | 1 | The icy path runs along a cliff edge | Take it slow · Take the longer path inland · 💀 Sprint along the edge |
